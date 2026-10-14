@@ -117,7 +117,7 @@ def make_plan(date: dt.date | None = None) -> dict:
     topic = topics[day % len(topics)]
 
     default = _default_copy(brand, topic)
-    parsed = llm.structured(SYSTEM, _user_prompt(brand, topic, date), DailyCopy, max_tokens=4000)
+    parsed = llm.structured(SYSTEM, _user_prompt(brand, topic, date), DailyCopy, max_tokens=4000, label="caption")
     if parsed is None:
         copy, source, model = default, "calendar", None
     else:

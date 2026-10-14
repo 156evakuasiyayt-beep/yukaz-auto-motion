@@ -18,7 +18,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
-from . import atelier
+from . import atelier, llm
 from .plan import ROOT, make_plan
 from .scenes import fill_template
 
@@ -154,6 +154,8 @@ def main():
         ws, cover_at = out / "workspace", 10.2
         build_workspace(plan, ws)
         plan.update(video_mode="template", concept="Qutunun səyahəti (şablon)")
+    plan["ai_usage"] = llm.usage_summary()
+    log.info("AI usage: %s", plan["ai_usage"])
     render(ws, out / "reel.mp4")
     make_cover(out / "reel.mp4", plan["cover_title"], out / "cover.jpg", at=cover_at)
     (out / "caption.txt").write_text(plan["caption"], encoding="utf-8")

@@ -58,7 +58,7 @@ Bot: **t.me/yukaz_reels_bot**. Mesajları və təsdiq düymələrini yalnız `TE
 ### 4. Mətn yazan AI: Claude **və ya** OpenAI
 İkisindən biri kifayətdir. Gündə bir qısa sorğu göndərilir, xərci sentlərlədir.
 - **Claude:** [console.anthropic.com](https://console.anthropic.com) → API Keys → secret `ANTHROPIC_API_KEY` (model: `claude-opus-5-5`)
-- **OpenAI:** [platform.openai.com](https://platform.openai.com/api-keys) → secret `OPENAI_API_KEY` (defolt model: `gpt-5.5`; dəyişmək üçün repo **Variables**-da `OPENAI_MODEL` yaradın)
+- **OpenAI:** [platform.openai.com](https://platform.openai.com/api-keys) → secret `OPENAI_API_KEY` (defolt model: `gpt-6.1-sol`, **Flex** rejimində — 50% ucuz; dəyişmək üçün repo **Variables**-da `OPENAI_MODEL`, Flex-i söndürmək üçün `OPENAI_FLEX` = `0`). Gündəlik xərc Telegram mesajında göstərilir (təxminən $0.1–0.25/gün).
 
 Hər iki açar varsa, Claude istifadə olunur. OpenAI-ı məcburi seçmək üçün repo → Settings → Secrets and variables → **Variables** → `LLM_PROVIDER` = `openai`.
 

@@ -69,6 +69,11 @@ def send_preview(out: Path):
         design = f"Dizayn: şablon · otaq: {plan['room_set']} · fon: {plan['palette']}"
     head = (f"🎬 Yük.az — {plan['date']} Reels hazırdır\n"
             f"Mövzu: {plan['topic']}\n{design}\nMətn: {plan['copy_source']}")
+    usage = plan.get("ai_usage") or {}
+    if usage.get("calls"):
+        cost = usage.get("cost_usd")
+        head += (f"\nAI: {usage['calls']} sorğu · {usage['output_tokens']:,} çıxış token"
+                 + (f" · ≈ ${cost:.2f}" if cost is not None else ""))
     if not enabled():
         log.info("telegram disabled; preview:\n%s", head)
         return

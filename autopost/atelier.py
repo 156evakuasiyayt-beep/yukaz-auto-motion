@@ -292,7 +292,7 @@ def evaluate(ws: Path, plan: dict, html: str) -> tuple[list[str], Review | None,
     if sheet is None:
         return ["snapshot capture failed: " + _strip_ansi(out)[-1500:]], None, None
     review = llm.structured(REVIEW_SYSTEM, f"Today's texts and brief:\n{_brief(plan)}", Review,
-                            images=[sheet], max_tokens=3000)
+                            images=[sheet], max_tokens=3000, label=f"review-{ws.name.rsplit('-', 1)[-1]}")
     return [], review, sheet
 
 
@@ -311,7 +311,7 @@ def create(plan: dict, work: Path) -> dict | None:
                       + "\n\nFix ALL of them and return the corrected complete composition. Keep what works."
                       + f"\n\nPrevious index.html:\n```html\n{prev_html}\n```")
         log.info("atelier attempt %d/%d — %s", attempt, ATTEMPTS, concept_for(plan["day"])[:60])
-        comp = llm.structured(SYSTEM, prompt, Composition, max_tokens=24000)
+        comp = llm.structured(SYSTEM, prompt, Composition, max_tokens=24000, label=f"compose-{attempt}")
         if comp is None:
             feedback = feedback or ["the previous request failed; produce a valid, complete composition"]
             continue

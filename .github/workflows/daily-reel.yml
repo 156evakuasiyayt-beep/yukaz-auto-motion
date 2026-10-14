@@ -43,6 +43,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           LLM_PROVIDER: ${{ vars.LLM_PROVIDER }}
           OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
+          OPENAI_FLEX: ${{ vars.OPENAI_FLEX }}
           VIDEO_MODE: ${{ vars.VIDEO_MODE }}
         run: |
           ARGS="--out out"
