@@ -8,8 +8,8 @@ Hər gün avtomatik olaraq:
        → Claude caption, hashtag, cover başlığı və ekran mətnlərini yazır
        → illüstrasiyalı motion video render olunur (otaq dəsti + gün vaxtı hər gün dəyişir)
        → cover şəkli hazırlanır
-       → video + caption Telegram-a sizə göndərilir
-Siz    → GitHub-da «Approve» basırsınız
+       → video + cover + caption 3 Telegram hesabına göndərilir
+Siz    → Telegram-da «✅ Paylaş» basırsınız (və ya «❌ Ləğv et»)
 09:00  → Instagram Reels + Facebook Page Reels-də paylaşılır, nəticə Telegram-a gəlir
 ```
 
@@ -41,9 +41,9 @@ Videoların müxtəlifliyi: 3 otaq dəsti (ev / ofis / məişət texnikası) × 
 > App «Development» rejimində qala bilər: öz biznesinizin səhifə və Instagram hesabına paylaşmaq üçün App Review lazım deyil.
 
 ### 3. Telegram bot (təsdiq və bildirişlər)
-1. Telegram-da [@BotFather](https://t.me/BotFather) → `/newbot` → token-i saxlayın (`TELEGRAM_BOT_TOKEN`).
-2. Yeni botunuza `/start` yazın.
-3. `python -m autopost.setup_helper telegram <BOT_TOKEN>` → `TELEGRAM_CHAT_ID` çap olunur.
+Bot: **t.me/yukaz_reels_bot**. Mesajları və təsdiq düymələrini yalnız `TELEGRAM_CHAT_IDS`-dəki hesablar görür və istifadə edə bilir.
+1. Hər üç hesab botu açıb **Start** basmalıdır. Telegram, istifadəçi botu başlatmayınca ona mesaj göndərməyə icazə vermir.
+2. Secret-lər: `TELEGRAM_BOT_TOKEN` və `TELEGRAM_CHAT_IDS` = `1265320152,1346490210,8738816943`
 
 ### 4. Mətn yazan AI: Claude **və ya** OpenAI
 İkisindən biri kifayətdir. Gündə bir qısa sorğu göndərilir, xərci sentlərlədir.
@@ -55,9 +55,7 @@ Hər iki açar varsa, Claude istifadə olunur. OpenAI-ı məcburi seçmək üç�
 ### 5. GitHub
 1. GitHub-da **private** repo yaradın (məs. `yukaz-autopost`) və bu qovluğu push edin.
 2. Repo → **Settings → Secrets and variables → Actions → New repository secret** — 6 secret:
-   `ANTHROPIC_API_KEY` (və ya `OPENAI_API_KEY`), `META_ACCESS_TOKEN`, `FB_PAGE_ID`, `IG_USER_ID`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
-3. Repo → **Settings → Environments → New environment** → ad: `production` → **Required reviewers**: özünüzü əlavə edin.
-4. Telefonunuza **GitHub** tətbiqini qurun, təsdiq bildirişləri ora da gələcək.
+   `ANTHROPIC_API_KEY` (və ya `OPENAI_API_KEY`), `META_ACCESS_TOKEN`, `FB_PAGE_ID`, `IG_USER_ID`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_IDS`
 
 ### 6. İlk sınaq
 Repo → **Actions → Daily Reel → Run workflow**. `publish_now` seçsəniz, təsdiqdən sonra 09:00-ı gözləmədən paylaşılır.
@@ -65,10 +63,11 @@ Repo → **Actions → Daily Reel → Run workflow**. `publish_now` seçsəniz, 
 ---
 
 ## Gündəlik istifadə
-- Səhər Telegram-a video, cover və caption gəlir.
-- Bəyənirsinizsə: mesajdakı linkdən → **Review deployments** → `production` → **Approve**.
-- Bəyənmirsinizsə: **Reject** basın, həmin gün paylaşım olmur.
-- **Tam avtomatik rejim:** Settings → Environments → `production` → Required reviewers-i silin. Kodda dəyişiklik lazım deyil.
+- Səhər ~08:05-də 3 Telegram hesabına video, cover və caption gəlir.
+- **✅ Paylaş:** 3 nəfərdən hər hansı biri basa bilər. Paylaşım 09:00-da olur, 09:00 keçibsə dərhal paylaşılır.
+- **❌ Ləğv et:** həmin gün paylaşım olmur.
+- 14:00-a qədər heç kim cavab verməsə, həmin gün paylaşılmır və bu barədə mesaj gəlir.
+- **Tam avtomatik rejim:** repo → Settings → Secrets and variables → **Variables** → `APPROVAL` = `none`. Kodda dəyişiklik lazım deyil.
 
 ## Fərdiləşdirmə
 | Nə | Harada |

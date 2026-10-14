@@ -56,19 +56,19 @@ jobs:
             out/cover.jpg
             out/caption.txt
             out/plan.json
+            out/telegram.json
       - name: Send preview to Telegram
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        run: python -m autopost.notify preview --out out --url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          TELEGRAM_CHAT_IDS: ${{ secrets.TELEGRAM_CHAT_IDS }}
+        run: python -m autopost.notify preview --out out
 
   publish:
     needs: build
     runs-on: ubuntu-latest
-    # "production" environment has a required reviewer → this job waits for your approval.
-    # Remove the reviewer in Settings → Environments to switch to fully automatic posting.
-    environment: production
-    timeout-minutes: 90
+    # Waits for ✅/❌ in Telegram (only TELEGRAM_CHAT_IDS can approve) until 14:00 Baku.
+    # Fully automatic posting: set repo variable APPROVAL = none.
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -86,8 +86,8 @@ jobs:
           FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_CHAT_IDS: ${{ secrets.TELEGRAM_CHAT_IDS }}
         run: |
           WAIT="--wait-until 09:00"
           if [ "${{ inputs.publish_now }}" = "true" ]; then WAIT=""; fi
-          python -m autopost.publish --out out --platforms "${{ inputs.platforms || 'instagram,facebook' }}" $WAIT
+          python -m autopost.publish --out out --platforms "${{ inputs.platforms || 'instagram,facebook' }}"             --approval "${{ vars.APPROVAL || 'telegram' }}" --approval-deadline 14:00 $WAIT
