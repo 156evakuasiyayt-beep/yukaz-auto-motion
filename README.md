@@ -45,13 +45,17 @@ Videoların müxtəlifliyi: 3 otaq dəsti (ev / ofis / məişət texnikası) × 
 2. Yeni botunuza `/start` yazın.
 3. `python -m autopost.setup_helper telegram <BOT_TOKEN>` → `TELEGRAM_CHAT_ID` çap olunur.
 
-### 4. Claude API açarı
-[console.anthropic.com](https://console.anthropic.com) → API Keys → `ANTHROPIC_API_KEY`. Model: `claude-opus-5-5`. Gündə bir qısa sorğu göndərilir, xərci sentlərlədir.
+### 4. Mətn yazan AI: Claude **və ya** OpenAI
+İkisindən biri kifayətdir. Gündə bir qısa sorğu göndərilir, xərci sentlərlədir.
+- **Claude:** [console.anthropic.com](https://console.anthropic.com) → API Keys → secret `ANTHROPIC_API_KEY` (model: `claude-opus-5-5`)
+- **OpenAI:** [platform.openai.com](https://platform.openai.com/api-keys) → secret `OPENAI_API_KEY` (defolt model: `gpt-5.5`; dəyişmək üçün repo **Variables**-da `OPENAI_MODEL` yaradın)
+
+Hər iki açar varsa, Claude istifadə olunur. OpenAI-ı məcburi seçmək üçün repo → Settings → Secrets and variables → **Variables** → `LLM_PROVIDER` = `openai`.
 
 ### 5. GitHub
 1. GitHub-da **private** repo yaradın (məs. `yukaz-autopost`) və bu qovluğu push edin.
 2. Repo → **Settings → Secrets and variables → Actions → New repository secret** — 6 secret:
-   `ANTHROPIC_API_KEY`, `META_ACCESS_TOKEN`, `FB_PAGE_ID`, `IG_USER_ID`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
+   `ANTHROPIC_API_KEY` (və ya `OPENAI_API_KEY`), `META_ACCESS_TOKEN`, `FB_PAGE_ID`, `IG_USER_ID`, `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
 3. Repo → **Settings → Environments → New environment** → ad: `production` → **Required reviewers**: özünüzü əlavə edin.
 4. Telefonunuza **GitHub** tətbiqini qurun, təsdiq bildirişləri ora da gələcək.
 
@@ -71,7 +75,7 @@ Repo → **Actions → Daily Reel → Run workflow**. `publish_now` seçsəniz, 
 |---|---|
 | Mövzular, hazır mətnlər, brend faktları, telefon | `content/calendar.yaml` |
 | Paylaşım saatı | `.github/workflows/daily-reel.yml` → `cron` (UTC) və `--wait-until 09:00` |
-| Claude-a təlimat (ton, qaydalar) | `autopost/plan.py` → `SYSTEM` |
+| AI-a təlimat (ton, qaydalar) | `autopost/plan.py` → `SYSTEM` |
 | Otaq dəstləri, əşyalar, rəng palitraları | `autopost/scenes.py` |
 | Animasiya və səhnələr | `template/index.html` |
 

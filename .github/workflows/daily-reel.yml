@@ -40,6 +40,9 @@ jobs:
       - name: Build reel
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          LLM_PROVIDER: ${{ vars.LLM_PROVIDER }}
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
         run: |
           ARGS="--out out"
           if [ -n "${{ inputs.date }}" ]; then ARGS="$ARGS --date ${{ inputs.date }}"; fi
