@@ -19,6 +19,10 @@ _ap = argparse.ArgumentParser()
 _ap.add_argument("out")
 _ap.add_argument("--transpose", type=int, default=0)
 _ap.add_argument("--seed", type=int, default=11)
+_ap.add_argument("--mode", choices=["template", "bed"], default="template",
+                 help="template = SFX locked to the fixed template; bed = generic score + SFX on --cuts")
+_ap.add_argument("--cuts", default="", help="bed mode: comma-separated scene-cut times (s) for whooshes")
+_ap.add_argument("--endcard", type=float, default=16.5, help="bed mode: end-card start time (s)")
 ARGS = _ap.parse_args()
 rng = np.random.default_rng(ARGS.seed)
 OUT = Path(ARGS.out)
@@ -168,17 +172,24 @@ F = ([41, 53, 57, 60, 65], 29, [69, 72, 77, 81])
 G = ([43, 50, 55, 59, 62], 31, [67, 71, 74, 79])
 bars = [(0, C), (2, AM), (4, F), (6, G), (8, C), (10, AM), (12, F), (14, G)]
 
-groove = lambda t: (4.0 <= t < 10.9) or (12.5 <= t < 14.9)
+BED = ARGS.mode == "bed"
+END = ARGS.endcard if BED else 15.0
+if BED:
+    groove = lambda t: 2.5 <= t < END - 0.5
+else:
+    groove = lambda t: (4.0 <= t < 10.9) or (12.5 <= t < 14.9)
 
 for t0, (pad_notes, root, arp) in bars:
-    seg = 1.0 if t0 == 14 else 2.0
+    seg = 1.0 if (t0 == 14 and not BED) else min(2.0, END - t0)
+    if seg <= 0:
+        continue
     place(music, pad(pad_notes[1:], seg + 0.3, 1500 if t0 < 4 else 2000, 0.8 if t0 < 4 else 1.0), t0)
     pattern = [0, 1, 2, 3, 2, 1, 3, 2]
     for k in range(int(seg / 0.25)):
         nt = t0 + k * 0.25
-        if t0 < 4 and k % 2 == 1:
+        if t0 < (2.5 if BED else 4) and k % 2 == 1:
             continue  # sparser intro
-        if 11.0 <= nt < 12.2:
+        if not BED and 11.0 <= nt < 12.2:
             continue  # breath at the door
         m = arp[pattern[k % 8]]
         place(music, marimba(m), nt, 0.9)
@@ -190,9 +201,9 @@ for t0, (pad_notes, root, arp) in bars:
 
 # drums
 t = 0.0
-while t < 15.0 - 1e-6:
+while t < END - 1e-6:
     beat = round(t / 0.5)
-    if 0.5 <= t < 4.0 and beat % 2 == 1:
+    if 0.5 <= t < (2.5 if BED else 4.0) and beat % 2 == 1:
         place(drums, snap(), t, 0.8)
         place(send, snap(), t, 0.4)
     if groove(t):
@@ -204,48 +215,63 @@ while t < 15.0 - 1e-6:
             place(drums, shaker(1.0 if s % 2 else 0.6), t + s * 0.125)
     t += 0.5
 
-# break at the door (11.0 – 12.2)
-place(music, pad([52, 57, 60, 64], 1.4, 1200), 11.0, 1.2)
-place(sfx, riser(0.8), 11.45, 0.8)
+if not BED:
+    # break at the door (11.0 – 12.2)
+    place(music, pad([52, 57, 60, 64], 1.4, 1200), 11.0, 1.2)
+    place(sfx, riser(0.8), 11.45, 0.8)
 
-# end card (15.0 – 21.0): resolve on C
-place(music, pad([48, 55, 60, 64, 67, 72], 6.0, 2400, 1.3), 15.0)
-place(music, bass(36, 2.5), 15.0, 1.2)
-place(drums, kick(1.0), 15.95)
-kicks.append(15.95)
+# end card: resolve on C
+place(music, pad([48, 55, 60, 64, 67, 72], DUR - END, 2400, 1.3), END)
+place(music, bass(36, 2.5), END, 1.2)
+hit = END + (0.0 if BED else 0.95)
+place(drums, kick(1.0), hit)
+kicks.append(hit)
 melody = [(16.0, 79), (16.25, 76), (16.5, 72), (16.75, 76), (17.0, 79), (17.5, 84), (18.0, 83), (18.25, 79), (18.5, 76), (19.0, 72)]
 for nt, m in melody:
-    place(music, marimba(m, 0.9), nt, 0.9)
-    place(send, marimba(m, 0.9), nt, 0.6)
+    nt += END - 15.0
+    if nt < DUR - 0.8:
+        place(music, marimba(m, 0.9), nt, 0.9)
+        place(send, marimba(m, 0.9), nt, 0.6)
+
+if BED:
+    # generic sound design: whoosh into every scene cut, riser + hit into the end card
+    for c in [float(x) for x in ARGS.cuts.split(",") if x.strip()]:
+        if 0.4 < c < END - 0.3:
+            place(sfx, whoosh(0.45, 0.85), c - 0.35)
+            place(sfx, tock(900, 0.5), c)
+    place(sfx, riser(1.0), END - 1.0, 0.8)
+    place(sfx, thud(0.8), END)
+    chime([84, 91, 96], END + 0.05, 0.07, sfx, 0.9)
 
 # ------------------------------------------------------------------ SFX (locked to picture)
-place(sfx, bloop(300, 600), 1.0, 0.9)  # box pops in
-for k, tp in enumerate([1.5, 1.75, 2.0, 2.25, 2.5]):  # items fly into the box
-    place(sfx, whoosh(0.3, 0.6), tp)
-    place(sfx, bloop(420 + k * 70, 820 + k * 110), tp + 0.3)
-place(sfx, thud(0.5), 3.0)  # flaps close
-place(sfx, zip_(), 3.15)  # tape
-place(sfx, boing(), 3.5)  # jump
-place(sfx, whoosh(0.5, 0.9), 3.6)  # wall rises
-chime([84, 88, 91], 3.75, 0.06, sfx, 0.9)  # turns into the logo cube
-place(sfx, thud(0.8), 4.05)
-for k in range(12):  # hop landings
-    land = 5.0 + 0.5 * k
-    place(sfx, tock(760 if k % 2 else 980, 0.8), land)
-    if k in (3, 7, 11):
-        place(sfx, whoosh(0.4, 0.6), land - 0.42)
-place(sfx, tock(1100), 11.45)  # hop to the door
-chime([79, 84], 11.5, 0.08, sfx, 0.8)  # door opens
-place(sfx, whoosh(0.45, 1.0), 11.8)  # zoom through the door
-place(sfx, thud(0.8), 12.55)  # lands in the new room
-chime([72, 76, 79, 84, 88], 12.7, 0.05, sfx, 1.0)  # unfolds
-for k, tp in enumerate([12.8, 12.9, 13.0, 13.1]):
-    place(sfx, bloop(700 + k * 90, 350 + k * 60), tp, 0.8)
-place(sfx, whoosh(0.5, 0.9), 14.6)  # iris to end card
-place(sfx, thud(0.7), 15.95)  # cube assembles
-chime([84, 91, 96], 15.95, 0.07, sfx, 0.9)
-place(sfx, tock(1500, 0.6), 16.3)  # orange dot
-place(sfx, bloop(500, 900), 17.4, 0.7)  # phone pill
+if not BED:
+    place(sfx, bloop(300, 600), 1.0, 0.9)  # box pops in
+    for k, tp in enumerate([1.5, 1.75, 2.0, 2.25, 2.5]):  # items fly into the box
+        place(sfx, whoosh(0.3, 0.6), tp)
+        place(sfx, bloop(420 + k * 70, 820 + k * 110), tp + 0.3)
+    place(sfx, thud(0.5), 3.0)  # flaps close
+    place(sfx, zip_(), 3.15)  # tape
+    place(sfx, boing(), 3.5)  # jump
+    place(sfx, whoosh(0.5, 0.9), 3.6)  # wall rises
+    chime([84, 88, 91], 3.75, 0.06, sfx, 0.9)  # turns into the logo cube
+    place(sfx, thud(0.8), 4.05)
+    for k in range(12):  # hop landings
+        land = 5.0 + 0.5 * k
+        place(sfx, tock(760 if k % 2 else 980, 0.8), land)
+        if k in (3, 7, 11):
+            place(sfx, whoosh(0.4, 0.6), land - 0.42)
+    place(sfx, tock(1100), 11.45)  # hop to the door
+    chime([79, 84], 11.5, 0.08, sfx, 0.8)  # door opens
+    place(sfx, whoosh(0.45, 1.0), 11.8)  # zoom through the door
+    place(sfx, thud(0.8), 12.55)  # lands in the new room
+    chime([72, 76, 79, 84, 88], 12.7, 0.05, sfx, 1.0)  # unfolds
+    for k, tp in enumerate([12.8, 12.9, 13.0, 13.1]):
+        place(sfx, bloop(700 + k * 90, 350 + k * 60), tp, 0.8)
+    place(sfx, whoosh(0.5, 0.9), 14.6)  # iris to end card
+    place(sfx, thud(0.7), 15.95)  # cube assembles
+    chime([84, 91, 96], 15.95, 0.07, sfx, 0.9)
+    place(sfx, tock(1500, 0.6), 16.3)  # orange dot
+    place(sfx, bloop(500, 900), 17.4, 0.7)  # phone pill
 
 # ------------------------------------------------------------------ mix
 t_all = np.arange(N) / SR

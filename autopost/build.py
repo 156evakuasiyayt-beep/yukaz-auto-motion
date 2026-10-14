@@ -1,4 +1,7 @@
-"""Build today's reel: plan → fill template → synth music → render → cover.
+"""Build today's reel: plan → bespoke composition (atelier) or template → render → cover.
+
+VIDEO_MODE env: atelier (default — a brand-new AI-authored composition every day, falls back
+to the template if it can't pass QA) | template (the fixed "Qutunun səyahəti" choreography).
 
 Usage:  python -m autopost.build [--out out] [--date YYYY-MM-DD]
 Outputs in --out: reel.mp4, cover.jpg, caption.txt, plan.json
@@ -7,6 +10,7 @@ import argparse
 import datetime as dt
 import json
 import logging
+import os
 import shutil
 import subprocess
 import sys
@@ -14,6 +18,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFont
 
+from . import atelier
 from .plan import ROOT, make_plan
 from .scenes import fill_template
 
@@ -137,10 +142,20 @@ def main():
     plan = make_plan(date)
     log.info("plan: %s / %s / %s (copy: %s)", plan["topic"], plan["room_set"], plan["palette"], plan["copy_source"])
 
-    ws = out / "workspace"
-    build_workspace(plan, ws)
+    mode = (os.environ.get("VIDEO_MODE") or "atelier").lower()
+    info = atelier.create(plan, out / "work") if mode == "atelier" else None
+    if info:
+        ws, cover_at = info["workspace"], 10.5
+        plan.update(video_mode="atelier", concept=info["concept"], direction=info["direction"],
+                    qa_score=info["score"], qa_issues=info["issues"], attempts=info["attempt"])
+    else:
+        if mode == "atelier":
+            log.warning("atelier produced nothing usable — falling back to the template")
+        ws, cover_at = out / "workspace", 10.2
+        build_workspace(plan, ws)
+        plan.update(video_mode="template", concept="Qutunun səyahəti (şablon)")
     render(ws, out / "reel.mp4")
-    make_cover(out / "reel.mp4", plan["cover_title"], out / "cover.jpg")
+    make_cover(out / "reel.mp4", plan["cover_title"], out / "cover.jpg", at=cover_at)
     (out / "caption.txt").write_text(plan["caption"], encoding="utf-8")
     (out / "plan.json").write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
     log.info("done → %s", out)

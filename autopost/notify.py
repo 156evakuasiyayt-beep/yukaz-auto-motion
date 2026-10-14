@@ -63,8 +63,12 @@ def approval_tag(plan: dict) -> str:
 
 def send_preview(out: Path):
     plan = json.loads((out / "plan.json").read_text(encoding="utf-8"))
+    if plan.get("video_mode") == "atelier":
+        design = f"Dizayn: {plan['concept']} · keyfiyyət balı {plan.get('qa_score')}/10"
+    else:
+        design = f"Dizayn: şablon · otaq: {plan['room_set']} · fon: {plan['palette']}"
     head = (f"🎬 Yük.az — {plan['date']} Reels hazırdır\n"
-            f"Mövzu: {plan['topic']} · otaq: {plan['room_set']} · fon: {plan['palette']} · mətn: {plan['copy_source']}")
+            f"Mövzu: {plan['topic']}\n{design}\nMətn: {plan['copy_source']}")
     if not enabled():
         log.info("telegram disabled; preview:\n%s", head)
         return

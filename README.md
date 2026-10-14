@@ -13,7 +13,17 @@ Siz    → Telegram-da «✅ Paylaş» basırsınız (və ya «❌ Ləğv et»)
 09:00  → Instagram Reels + Facebook Page Reels-də paylaşılır, nəticə Telegram-a gəlir
 ```
 
-Videoların müxtəlifliyi: 3 otaq dəsti (ev / ofis / məişət texnikası) × 3 gün vaxtı (səhər / gün batımı / gecə) × 14 mövzu × 5 musiqi tonu. Claude cavab verməsə, mövzunun hazır mətnləri istifadə olunur, yəni video yenə çıxır.
+### Hər gün yeni dizayn (Atelier rejimi, defolt)
+Hər gün AI **30 yaradıcı istiqamətdən birini** götürür (kağız kəsmə, origami, izometrik Bakı, neon gecə, xəritə marşrutu, blueprint…) və OpenMontage-in HyperFrames qaydaları ilə **sıfırdan yeni motion kompozisiya** yazır. Sonra avtomatik keyfiyyət yoxlaması:
+
+1. Texniki yoxlama: `hyperframes lint` + `hyperframes check`
+2. 6 kadrdan kontakt vərəqi çəkilir, AI **art-direktor kimi** baxıb 1–10 bal verir
+3. Bal 7-dən aşağıdırsa və ya xəta varsa, problemlər AI-a qaytarılır və düzəldilmiş versiya yaradılır (3 cəhdə qədər)
+4. Heç biri keçməsə, sabit **"Qutunun səyahəti"** şablonu istifadə olunur (3 otaq × 3 gün vaxtı variantı). Yəni gün heç vaxt boş qalmır.
+
+Telegram mesajında günün dizayn konsepti və keyfiyyət balı göstərilir. Yalnız şablon istifadə etmək üçün repo Variables-da `VIDEO_MODE` = `template` yazın.
+
+AI açarı olmasa və ya xəta versə, mövzunun hazır mətnləri və şablon istifadə olunur, yəni video yenə çıxır.
 
 ---
 
