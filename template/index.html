@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="az" data-resolution="portrait">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <title>Yük.az — Qutunun səyahəti</title>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      @font-face { font-family: "Poppins"; font-weight: 500; src: url("assets/fonts/Poppins-Medium.ttf") format("truetype"); }
+      @font-face { font-family: "Poppins"; font-weight: 600; src: url("assets/fonts/Poppins-SemiBold.ttf") format("truetype"); }
+      @font-face { font-family: "Poppins"; font-weight: 700; src: url("assets/fonts/Poppins-Bold.ttf") format("truetype"); }
+
+      :root {
+        --o: #ff4c00; --o2: #ff6a00; --peach: #ffc9a5; --cream: #fff3ea; --sand: #f4d6be;
+        --grey: #444444; --mid: #5b5b5b; --ink: #141414; --sage: #6e9c6a;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1080px; height: 1920px; overflow: hidden; background: #fff3ea; font-family: "Poppins", sans-serif; -webkit-font-smoothing: antialiased; }
+      #root { position: relative; width: 1080px; height: 1920px; overflow: hidden; }
+      .layer { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; overflow: hidden; }
+      .abs { position: absolute; display: block; }
+      .abs > svg, svg.abs { display: block; width: 100%; height: 100%; overflow: visible; }
+      .o { color: var(--o); }
+
+      /* captions — calm, tidy, few */
+      .cap { position: absolute; left: 0; right: 0; text-align: center; font-weight: 600; font-size: 66px; line-height: 1.28; letter-spacing: -0.01em; color: var(--ink); }
+      .mask { display: block; overflow: hidden; }
+      .mask > span { display: block; }
+
+      /* LAND-CSS-START */
+      #land { z-index: 10; }
+      #land-cam { position: absolute; inset: 0; transform-origin: 685px 1270px; }
+      #sky { position: absolute; inset: 0; background: linear-gradient(180deg, #ffeadc 0%, #ffd8bd 42%, #ffb98e 66%, #ffb98e 100%); }
+      #sun { left: 640px; top: 520px; width: 210px; height: 210px; border-radius: 50%; background: #fff6ef; }
+      #mtn { left: 0; top: 760px; width: 3200px; height: 560px; }
+      #city { left: 380px; top: 640px; width: 1400px; height: 700px; }
+      #hills { left: 0; top: 950px; width: 4600px; height: 400px; }
+      #near { left: 0; top: 0; width: 5400px; height: 1920px; }
+      #road { left: 0; top: 1350px; width: 1080px; height: 90px; background: #444; }
+      #ground { left: 0; top: 1440px; width: 1080px; height: 480px; background: linear-gradient(180deg, #f4d6be 0%, #f7e0cd 100%); }
+      #dash { left: 0; top: 1391px; width: 6400px; height: 8px; background: repeating-linear-gradient(90deg, #fff3ea 0 64px, transparent 64px 150px); }
+
+      /* LAND-CSS-END */
+      /* ---------- ROOM A (old home) ---------- */
+      #roomA { z-index: 20; }
+      #roomA-move { position: absolute; inset: 0; }
+      .wall { position: absolute; left: 0; top: 0; width: 1080px; height: 1350px; }
+      .floor { position: absolute; left: 0; top: 1350px; width: 1080px; height: 570px; }
+      .skirt { position: absolute; left: 0; top: 1336px; width: 1080px; height: 14px; }
+      #roomA .wall { background: #fff3ea; }
+      #roomA .floor { background: #f4d6be; }
+      #roomA .skirt { background: #f0d2bb; }
+      .board { position: absolute; left: 0; width: 1080px; height: 4px; background: rgba(214, 160, 120, 0.25); display: block; }
+      .frame { border: 14px solid #444; border-radius: 10px; background: #ffc9a5; overflow: hidden; }
+      #a-window { left: 110px; top: 420px; width: 360px; height: 470px; }
+      #a-rug { left: 300px; top: 1362px; width: 480px; height: 64px; border-radius: 50%; background: #ffc9a5; }
+
+      /* ---------- the hero (cardboard box → logo cube) ---------- */
+      #shadow { z-index: 39; left: 440px; top: 1337px; width: 200px; height: 28px; border-radius: 50%; background: rgba(20, 20, 20, 0.16); }
+      #actor { z-index: 40; left: 430px; top: 1090px; width: 220px; height: 270px; transform-origin: 50% 96.3%; }
+      #actor-spin { position: absolute; inset: 0; transform-origin: 50% 59.3%; }
+      #actor-spin svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+      #hero { opacity: 0; }
+      #box-lid { opacity: 0; }
+      #spark { z-index: 41; left: 440px; top: 1050px; width: 200px; height: 200px; border-radius: 50%; border: 8px solid #ff6a00; opacity: 0; }
+
+      /* ---------- ROOM B (new home) ---------- */
+      #roomB { z-index: 30; }
+      #roomB .wall { background: #ffe6d3; }
+      #roomB .floor { background: #f6d3b8; }
+      #roomB .skirt { background: #f2c8a8; }
+      #b-flash { position: absolute; inset: 0; background: #ffb27e; }
+      #b-window { left: 650px; top: 430px; width: 320px; height: 440px; }
+      #b-glow { width: 520px; height: 520px; border-radius: 50%; background: radial-gradient(circle, rgba(255, 214, 180, 0.95) 0%, rgba(255, 214, 180, 0) 65%); opacity: 0; }
+      #b-rug { left: 250px; top: 1364px; width: 580px; height: 76px; border-radius: 50%; background: #ffc9a5; transform-origin: 50% 50%; }
+
+      /* ---------- iris + END CARD ---------- */
+      #iris { z-index: 50; left: 390px; top: 1050px; width: 300px; height: 300px; border-radius: 50%; background: #ffffff; }
+      #endc { z-index: 45; }
+      #e-bg { position: absolute; inset: 0; background: #ffffff; }
+      #e-glow { position: absolute; inset: 0; background: radial-gradient(70% 38% at 50% 100%, rgba(255, 106, 0, 0.13), transparent 70%); opacity: 0; }
+      #e-cube { left: 390px; top: 470px; width: 300px; height: 344px; transform-origin: 50% 100%; }
+      #e-cube svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+      #e-word { position: absolute; left: 0; right: 0; top: 860px; height: 170px; display: flex; justify-content: center; align-items: center; font-weight: 600; font-size: 150px; line-height: 1; color: #444; }
+      #e-word .l { display: inline-block; }
+      #e-dot { display: inline-block; width: 34px; height: 34px; border-radius: 50%; background: var(--o); margin: 30px 26px 0 26px; }
+      #e-slogan { top: 1080px; font-size: 64px; }
+      #e-pill { left: 280px; top: 1232px; width: 520px; height: 104px; border-radius: 52px; background: var(--o); display: flex; align-items: center; justify-content: center; gap: 18px; color: #fff; font-weight: 700; font-size: 48px; letter-spacing: 0.01em; opacity: 0; box-shadow: 0 18px 40px rgba(255, 76, 0, 0.28); }
+      #e-pill svg { width: 46px; height: 46px; display: block; }
+      #e-url { position: absolute; left: 0; right: 0; top: 1370px; text-align: center; font-weight: 500; font-size: 36px; color: #8a8a8a; letter-spacing: 0.06em; opacity: 0; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="21" data-width="1080" data-height="1920">
+      <audio id="bgm" src="assets/music.wav" data-start="0" data-duration="21" data-track-index="10" data-volume="1"></audio>
+
+      <!-- LAND-START -->
+      <div id="land" class="layer clip" data-start="0" data-duration="12.3" data-track-index="2">
+        <div id="land-cam">
+          <div id="sky"></div>
+          {{STARS}}
+          <div id="sun" class="abs"></div>
+          <svg id="mtn" class="abs" viewBox="0 0 3200 560">
+            <polygon fill="#f7b48d" points="0,560 0,330 220,170 420,300 640,120 900,330 1120,200 1380,360 1600,150 1850,320 2100,190 2350,340 2600,140 2900,310 3200,200 3200,560" />
+            <g fill="#fff0e4">
+              <polygon points="640,120 600,160 625,155 640,170 660,152 682,158" />
+              <polygon points="1600,150 1562,188 1585,182 1600,196 1618,180 1640,186" />
+              <polygon points="2600,140 2560,180 2585,174 2600,190 2620,172 2642,178" />
+            </g>
+          </svg>
+          <!-- Baku skyline: Flame Towers + TV tower -->
+          <svg id="city" class="abs" viewBox="0 0 1400 700">
+            <g fill="#8c7468">
+              <rect x="0" y="520" width="90" height="180" rx="6" /><rect x="100" y="450" width="110" height="250" rx="6" />
+              <rect x="220" y="560" width="80" height="140" rx="6" /><rect x="310" y="480" width="100" height="220" rx="6" />
+              <rect x="1060" y="500" width="110" height="200" rx="6" /><rect x="1290" y="540" width="110" height="160" rx="6" />
+              <rect x="1205" y="230" width="16" height="470" /><circle cx="1213" cy="330" r="26" /><rect x="1210" y="150" width="6" height="90" />
+            </g>
+            <path fill="#5b5b5b" d="M500,700 C500,430 545,240 610,170 C640,330 650,520 630,700 Z" />
+            <path fill="#444444" d="M680,700 C680,380 735,170 805,70 C840,250 850,480 830,700 Z" />
+            <path fill="#5b5b5b" d="M870,700 C870,470 915,300 975,230 C1000,380 1010,540 995,700 Z" />
+          </svg>
+          <svg id="hills" class="abs" viewBox="0 0 4600 400">
+            <path fill="#f39a68" d="M0 400 L0 220 C300 120 500 120 800 230 C1100 330 1300 150 1650 160 C2000 170 2200 320 2500 250 C2800 180 3000 90 3350 170 C3700 250 3900 140 4200 180 C4400 200 4500 230 4600 240 L4600 400 Z" />
+            <path fill="#ee8b56" d="M0 400 L0 330 C400 280 700 300 1000 340 C1400 390 1700 290 2100 310 C2500 330 2800 380 3200 330 C3600 280 4100 320 4600 340 L4600 400 Z" />
+          </svg>
+          <div id="road" class="abs"></div>
+          <div id="ground" class="abs"></div>
+          <div id="dash" class="abs"></div>
+          <svg id="fore" class="abs" viewBox="0 0 6400 300" style="left: 0; top: 1470px; width: 6400px; height: 300px"><rect x="38" y="150" width="4" height="40" fill="#5e8c61" /><circle cx="40" cy="146" r="11" fill="#ff8a4c" /><circle cx="40" cy="146" r="4" fill="#fff3ea" /><path d="M295 260 q-6 -40 -22 -52 q20 8 26 40 q2 -46 18 -62 q-6 30 -6 60 q10 -30 30 -38 q-18 18 -22 52 Z" fill="#7baa72" /><path d="M428 60 q-6 -40 -22 -52 q20 8 26 40 q2 -46 18 -62 q-6 30 -6 60 q10 -30 30 -38 q-18 18 -22 52 Z" fill="#6e9c6a" /><path d="M668 260 q-6 -40 -22 -52 q20 8 26 40 q2 -46 18 -62 q-6 30 -6 60 q10 -30 30 -38 q-18 18 -22 52 Z" fill="#5e8c61" /><path d="M814 60 q-6 -40 -22 -52 q20 8 26 40 q2 -46 18 -62 q-6 30 -6 60 q10 -30 30 -38 q-18 18 -22 52 Z" fill="#5e8c61" /><ellipse cx="989" cy="190" rx="16" ry="8" fill="#e8c4a6" /><ellipse cx="1155" cy="120" rx="16" ry="8" fill="#e8c4a6" /><path d="M1293 260 q-6 -40 -22 -52 q20 8 26 40 q2 -46 18 -62 q-6 30 -6 60 q10 -30 30 -38 q-18 18 -22 52 Z" fill="#7baa72" /><path d="M1446 60 q-6 -40 -22 -52 q20 8 26 40 q2 -46 18 -62 q-6 30 -6 60 q10 -30 30 -38 q-18 18 -22 52 Z" fill="#7baa72" /><path d="M1621 120 q-6 -40 -22 -52 q20 8 26 40 q2 -46 18 -62 q-6 30 -6 60 q10 -30 30 -38 q-18 18 -22 52 Z" fill="#6e9c6a" /><path d="M1821 120 q-6 -40 -22 -52 q20 8 26 40 q2 -46 18 -62 q-6 30 -6 60 q10 -30 30 -38 q-18 18 -22 52 Z" fill="#7baa72" /><ellipse cx="1991" cy="190" rx="16" ry="8" fill="#e8c4a6" /><rect x="2114" y="220" width="4" height="40" fill="#5e8c61" /><circle cx="2116" cy="216" r="11" fill="#ff6a00" /><circle cx="2116" cy="216" r="4" fill="#fff3ea" /><rect x="2271" y="20" width="4" height="40" fill="#5e8c61" /><circle cx="2273" cy="16" r="11" fill="#ffc9a5" /><circle cx="2273" cy="16" r="4" fill="#fff3ea" /><path d="M2470 190 q-6 -40 -22 -52 q20 8 26 40 q2 -46 18 -62 q-6 30 -6 60 q10 -30 30 -38 q-18 18 -22 52 Z" fill="#7baa72" /><rect x="2667" y="150" width="4" height="40" fill="#5e8c61" /><circle cx="2669" cy="146" r="11" fill="#ffc9a5" /><circle cx="2669" cy="146" r="4" fill="#fff3ea" /><path d="M2869 260 q-6 -40 -22 -52 q20 8 26 40 q2 -46 18 -62 q-6 30 -6 60 q10 -30 30 -38 q-18 18 -22 52 Z" fill="#6e9c6a" /><path d="M3034 190 q-6 -40 -22 -52 q20 8 26 40 q2 -46 18 -62 q-6 30 -6 60 q10 -30 30 -38 q-18 18 -22 52 Z" fill="#7baa72" /><ellipse cx="3245" cy="60" rx="16" ry="8" fill="#e8c4a6" /><ellipse cx="3505" cy="190" rx="16" ry="8" fill="#e8c4a6" /><path d="M3721 260 q-6 -40 -22 -52 q20 8 26 40 q2 -46 18 -62 q-6 30 -6 60 q10 -30 30 -38 q-18 18 -22 52 Z" fill="#7baa72" /><path d="M3887 60 q-6 -40 -22 -52 q20 8 26 40 q2 -46 18 -62 q-6 30 -6 60 q10 -30 30 -38 q-18 18 -22 52 Z" fill="#7baa72" /><rect x="4123" y="150" width="4" height="40" fill="#5e8c61" /><circle cx="4125" cy="146" r="11" fill="#ff8a4c" /><circle cx="4125" cy="146" r="4" fill="#fff3ea" /><ellipse cx="4309" cy="60" rx="16" ry="8" fill="#e8c4a6" /><rect x="4521" y="20" width="4" height="40" fill="#5e8c61" /><circle cx="4523" cy="16" r="11" fill="#ffc9a5" /><circle cx="4523" cy="16" r="4" fill="#fff3ea" /><path d="M4666 190 q-6 -40 -22 -52 q20 8 26 40 q2 -46 18 -62 q-6 30 -6 60 q10 -30 30 -38 q-18 18 -22 52 Z" fill="#5e8c61" /><path d="M4878 190 q-6 -40 -22 -52 q20 8 26 40 q2 -46 18 -62 q-6 30 -6 60 q10 -30 30 -38 q-18 18 -22 52 Z" fill="#6e9c6a" /><path d="M5137 190 q-6 -40 -22 -52 q20 8 26 40 q2 -46 18 -62 q-6 30 -6 60 q10 -30 30 -38 q-18 18 -22 52 Z" fill="#5e8c61" /><rect x="5336" y="80" width="4" height="40" fill="#5e8c61" /><circle cx="5338" cy="76" r="11" fill="#ff6a00" /><circle cx="5338" cy="76" r="4" fill="#fff3ea" /><rect x="5494" y="220" width="4" height="40" fill="#5e8c61" /><circle cx="5496" cy="216" r="11" fill="#ff6a00" /><circle cx="5496" cy="216" r="4" fill="#fff3ea" /><path d="M5628 260 q-6 -40 -22 -52 q20 8 26 40 q2 -46 18 -62 q-6 30 -6 60 q10 -30 30 -38 q-18 18 -22 52 Z" fill="#7baa72" /><rect x="5806" y="150" width="4" height="40" fill="#5e8c61" /><circle cx="5808" cy="146" r="11" fill="#ffc9a5" /><circle cx="5808" cy="146" r="4" fill="#fff3ea" /><path d="M6035 60 q-6 -40 -22 -52 q20 8 26 40 q2 -46 18 -62 q-6 30 -6 60 q10 -30 30 -38 q-18 18 -22 52 Z" fill="#5e8c61" /><ellipse cx="6163" cy="190" rx="16" ry="8" fill="#e8c4a6" /><path d="M6336 120 q-6 -40 -22 -52 q20 8 26 40 q2 -46 18 -62 q-6 30 -6 60 q10 -30 30 -38 q-18 18 -22 52 Z" fill="#5e8c61" /></svg>
+          <!-- near world: roadside trees + the new house (moves with the road) -->
+          <svg id="near" class="abs" viewBox="0 0 5400 1920">
+            <g id="trees">
+              <g transform="translate(300,0)"><rect x="-7" y="1270" width="14" height="80" fill="#8a5a3c" /><circle cx="0" cy="1230" r="58" fill="#6e9c6a" /><circle cx="30" cy="1262" r="38" fill="#5e8c61" /></g>
+              <g transform="translate(760,0)"><rect x="-6" y="1290" width="12" height="60" fill="#8a5a3c" /><circle cx="0" cy="1262" r="44" fill="#7baa72" /></g>
+              <g transform="translate(1200,0)"><rect x="-7" y="1270" width="14" height="80" fill="#8a5a3c" /><circle cx="0" cy="1230" r="58" fill="#6e9c6a" /><circle cx="-28" cy="1262" r="38" fill="#5e8c61" /></g>
+              <g transform="translate(1650,0)"><path d="M-60,1350 A60,60 0 0 1 60,1350 Z" fill="#7baa72" /></g>
+              <g transform="translate(2050,0)"><rect x="-7" y="1260" width="14" height="90" fill="#8a5a3c" /><polygon points="-62,1290 0,1150 62,1290" fill="#5e8c61" /><polygon points="-50,1230 0,1110 50,1230" fill="#6e9c6a" /></g>
+              <g transform="translate(2500,0)"><rect x="-7" y="1270" width="14" height="80" fill="#8a5a3c" /><circle cx="0" cy="1230" r="58" fill="#6e9c6a" /><circle cx="30" cy="1262" r="38" fill="#5e8c61" /></g>
+              <g transform="translate(2950,0)"><rect x="-7" y="1260" width="14" height="90" fill="#8a5a3c" /><polygon points="-62,1290 0,1150 62,1290" fill="#5e8c61" /><polygon points="-50,1230 0,1110 50,1230" fill="#6e9c6a" /></g>
+              <g transform="translate(3400,0)"><path d="M-70,1350 A70,70 0 0 1 70,1350 Z" fill="#7baa72" /></g>
+              <g transform="translate(3800,0)"><rect x="-7" y="1270" width="14" height="80" fill="#8a5a3c" /><circle cx="0" cy="1230" r="58" fill="#6e9c6a" /><circle cx="-28" cy="1262" r="38" fill="#5e8c61" /></g>
+              <g transform="translate(5300,0)"><rect x="-7" y="1270" width="14" height="80" fill="#8a5a3c" /><circle cx="0" cy="1230" r="58" fill="#6e9c6a" /><circle cx="30" cy="1262" r="38" fill="#5e8c61" /></g>
+            </g>
+            <g id="house">
+              <rect x="5080" y="920" width="40" height="110" fill="#444" />
+              <rect x="4800" y="1050" width="360" height="300" fill="#fff3ea" />
+              <polygon points="4772,1064 4980,888 5188,1064" fill="#ff4c00" />
+              <rect x="4990" y="1110" width="120" height="110" rx="8" fill="#ffb27e" />
+              <rect x="5046" y="1110" width="8" height="110" fill="#fff3ea" /><rect x="4990" y="1161" width="120" height="8" fill="#fff3ea" />
+              <rect x="4840" y="1190" width="90" height="160" rx="6" fill="#ffb27e" />
+              <rect x="4828" y="1340" width="114" height="12" rx="4" fill="#d9b79c" />
+            </g>
+          </svg>
+          <!-- the door is its own element so it can swing open -->
+          <div id="door" class="abs" style="left: 4840px; top: 1190px; width: 90px; height: 160px; border-radius: 6px; background: #444; transform-origin: 0% 50%">
+            <span class="abs" style="left: 68px; top: 80px; width: 10px; height: 10px; border-radius: 50%; background: #ffc9a5"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- LAND-END -->
+      <!-- ===================== ROOM A · old home ===================== -->
+      <div id="roomA" class="layer clip" data-start="0" data-duration="4.4" data-track-index="1">
+        <div id="roomA-move">
+          <div class="wall"></div>
+          <div class="floor"></div>
+          <span class="board" style="top: 1460px"></span><span class="board" style="top: 1610px"></span><span class="board" style="top: 1790px"></span>
+          <div class="skirt"></div>
+          <svg id="a-window" class="abs" viewBox="0 0 360 470">
+            <defs>
+              <clipPath id="clipA"><path d="M0 470 L0 180 A180 180 0 0 1 360 180 L360 470 Z" /></clipPath>
+              <linearGradient id="skyA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe2cc" /><stop offset="1" stop-color="#ff9a62" /></linearGradient>
+            </defs>
+            <g clip-path="url(#clipA)">
+              <rect width="360" height="470" fill="url(#skyA)" />
+              <circle cx="260" cy="170" r="42" fill="#fff6ef" />
+              <path fill="#ff7a3a" d="M70,470 C70,350 92,280 120,250 C134,320 138,400 130,470 Z" />
+              <path fill="#ff6a20" d="M150,470 C150,320 176,220 208,180 C224,280 228,380 220,470 Z" />
+              <path fill="#ff7a3a" d="M240,470 C240,370 262,310 288,285 C300,350 304,410 298,470 Z" />
+              <rect x="0" y="420" width="360" height="50" fill="#ff8a4c" />
+            </g>
+            <path d="M0 470 L0 180 A180 180 0 0 1 360 180 L360 470 Z" fill="none" stroke="#ffffff" stroke-width="18" />
+            <line x1="180" y1="10" x2="180" y2="470" stroke="#ffffff" stroke-width="10" />
+            <line x1="0" y1="300" x2="360" y2="300" stroke="#ffffff" stroke-width="10" />
+            <rect x="-20" y="462" width="400" height="18" rx="6" fill="#ffffff" />
+          </svg>
+          <div id="a-rug" class="abs"></div>
+          {{ROOM_A_ITEMS}}
+          <div id="capA" class="cap" style="top: 236px"><span class="mask"><span>{{HOOK}}</span></span></div>
+        </div>
+      </div>
+
+      <!-- ===================== ROOM B · new home ===================== -->
+      <div id="roomB" class="layer clip" data-start="12.2" data-duration="2.95" data-track-index="3">
+        <div class="wall"></div>
+        <div class="floor"></div>
+        <span class="board" style="top: 1470px"></span><span class="board" style="top: 1630px"></span><span class="board" style="top: 1800px"></span>
+        <div class="skirt"></div>
+        <svg id="b-window" class="abs" viewBox="0 0 320 440">
+          <defs>
+            <clipPath id="clipB"><path d="M0 440 L0 160 A160 160 0 0 1 320 160 L320 440 Z" /></clipPath>
+            <linearGradient id="skyB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff0e4" /><stop offset="1" stop-color="#ffc9a5" /></linearGradient>
+          </defs>
+          <g clip-path="url(#clipB)">
+            <rect width="320" height="440" fill="url(#skyB)" />
+            <circle cx="96" cy="190" r="40" fill="#ff8a4c" />
+            <path d="M0 440 L0 300 C80 250 140 260 200 300 C250 330 290 300 320 290 L320 440 Z" fill="#7baa72" />
+            <path d="M0 440 L0 370 C90 340 180 350 320 380 L320 440 Z" fill="#5e8c61" />
+          </g>
+          <path d="M0 440 L0 160 A160 160 0 0 1 320 160 L320 440 Z" fill="none" stroke="#ffffff" stroke-width="18" />
+          <line x1="160" y1="10" x2="160" y2="440" stroke="#ffffff" stroke-width="10" />
+          <rect x="-20" y="432" width="360" height="18" rx="6" fill="#ffffff" />
+        </svg>
+        <div id="b-glow" class="abs" style="{{GLOW_STYLE}}"></div>
+        <div id="b-rug" class="abs"></div>
+        {{ROOM_B_ITEMS}}
+        <div id="capB" class="cap" style="top: 236px"><span class="mask"><span>{{F1}} <span class="o" style="display: inline">{{F2}}</span></span></span></div>
+        <div id="b-flash"></div>
+      </div>
+
+      <!-- journey caption sits above land, below rooms -->
+      <div id="capJ" class="cap clip" data-start="4.5" data-duration="5.4" data-track-index="6" style="top: 236px; z-index: 15; color: {{CAPJ_COLOR}}">
+        <span class="mask"><span>{{J1}}</span></span>
+        <span class="mask"><span class="o">{{J2}}</span></span>
+      </div>
+
+      <!-- ===================== the hero ===================== -->
+      <div id="shadow" class="abs clip" data-start="0" data-duration="13.2" data-track-index="5"></div>
+      <div id="actor" class="abs clip" data-start="0" data-duration="13.2" data-track-index="4">
+        <div id="actor-spin">
+          <!-- cardboard box (open) -->
+          <svg id="box" viewBox="-110 -160 220 270">
+            <g id="box-flaps">
+              <polygon points="-86.6,-50 0,-100 -12,-150 -98.6,-100" fill="#f0c8a2" />
+              <polygon points="0,-100 86.6,-50 98.6,-100 12,-150" fill="#e8bb92" />
+            </g>
+            <polygon points="0,-100 86.6,-50 0,0 -86.6,-50" fill="#9a6440" />
+            <polygon points="-86.6,-50 0,0 0,100 -86.6,50" fill="#d99a6c" />
+            <polygon points="0,0 86.6,-50 86.6,50 0,100" fill="#e9b98f" />
+            <g id="box-front-flaps">
+              <polygon points="-86.6,-50 0,0 -16,24 -104,-24" fill="#e4ad80" />
+              <polygon points="0,0 86.6,-50 104,-24 16,24" fill="#f0c8a2" />
+            </g>
+            <g id="box-lid">
+              <polygon points="0,-100 86.6,-50 0,0 -86.6,-50" fill="#f0c8a2" />
+              <line id="tape" x1="-43.3" y1="-75" x2="43.3" y2="-25" stroke="#fff3ea" stroke-width="16" stroke-linecap="round" />
+            </g>
+          </svg>
+          <!-- logo cube -->
+          <svg id="hero" viewBox="-110 -160 220 270">
+            <g stroke="#ffffff" stroke-width="6" stroke-linejoin="round">
+              <polygon id="h-top" points="0,-100 86.6,-50 0,0 -86.6,-50" fill="#ff5410" />
+              <polygon id="h-left" points="-86.6,-50 0,0 0,100 -86.6,50" fill="#444444" />
+              <polygon id="h-right" points="0,0 86.6,-50 86.6,50 0,100" fill="#ff4c00" />
+            </g>
+          </svg>
+        </div>
+      </div>
+      <div id="spark" class="abs clip" data-start="3.7" data-duration="9.4" data-track-index="7"></div>
+
+      <!-- ===================== iris + END CARD ===================== -->
+      <div id="iris" class="abs clip" data-start="14.55" data-duration="0.5" data-track-index="8"></div>
+      <div id="endc" class="layer clip" data-start="15.0" data-duration="6.0" data-track-index="1">
+        <div id="e-bg"></div>
+        <div id="e-cam" class="layer">
+          <div id="e-cube" class="abs">
+            <svg id="e-left" viewBox="-96 -110 192 220"><polygon points="-86.6,-50 0,0 0,100 -86.6,50" fill="#444444" stroke="#fff" stroke-width="7" stroke-linejoin="round" /></svg>
+            <svg id="e-right" viewBox="-96 -110 192 220"><polygon points="0,0 86.6,-50 86.6,50 0,100" fill="#ff4c00" stroke="#fff" stroke-width="7" stroke-linejoin="round" /></svg>
+            <svg id="e-top" viewBox="-96 -110 192 220"><polygon points="0,-100 86.6,-50 0,0 -86.6,-50" fill="#ff4c00" stroke="#fff" stroke-width="7" stroke-linejoin="round" /></svg>
+          </div>
+          <div id="e-word"><span class="l">y</span><span class="l">ü</span><span class="l">k</span><span id="e-dot"></span><span class="l">a</span><span class="l">z</span></div>
+          <div id="e-slogan" class="cap"><span class="mask"><span>Yükünüz bizə <span class="o" style="display: inline">əmanət!</span></span></span></div>
+          <div id="e-pill" class="abs">
+            <svg viewBox="0 0 24 24" fill="#fff"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z" /></svg>
+            <span>{{PHONE}}</span>
+          </div>
+          <div id="e-url">yuk.az</div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+      const IR = { immediateRender: false };
+
+      /* ================= A · OLD HOME (0 – 4.1) ================= */
+      tl.fromTo("#roomA-move", { scale: 1.04 }, { scale: 1, duration: 3.6, ease: "sine.out" }, 0);
+      tl.fromTo("#capA .mask > span", { yPercent: 100 }, { yPercent: 0, duration: 0.7, ease: "power3.out" }, 0.25);
+      tl.to("#capA", { opacity: 0, duration: 0.4, ease: "power1.in" }, 2.9);
+
+      // the box pops up out of the floor
+      tl.fromTo("#actor", { scale: 0 }, { scale: 1, duration: 0.45, ease: "back.out(2)" }, 1.0);
+      tl.fromTo("#shadow", { scale: 0 }, { scale: 1, duration: 0.45, ease: "back.out(2)" }, 1.0);
+
+      // items lift (anticipation) and arc into the box mouth (540, 1200)
+      const flyIn = {{FLY_IN}};
+      flyIn.forEach((it, i) => {
+        tl.to(it.id, { y: -24, scale: 1.06, duration: 0.12, ease: "power2.out" }, it.t - 0.12);
+        tl.to(it.id, { x: 540 - it.cx, duration: 0.32, ease: "power1.inOut" }, it.t);
+        tl.to(it.id, { y: 1200 - it.cy, duration: 0.32, ease: "back.in(1.6)" }, it.t);
+        tl.to(it.id, { scale: 0.12, rotation: i % 2 ? 200 : -200, duration: 0.32, ease: "power2.in" }, it.t);
+        tl.to(it.id, { opacity: 0, duration: 0.05 }, it.t + 0.29);
+        tl.fromTo("#actor", { scaleX: 1.07, scaleY: 0.93 }, { scaleX: 1, scaleY: 1, duration: 0.25, ease: "elastic.out(1, 0.4)", immediateRender: false }, it.t + 0.31);
+      });
+      tl.to("#a-rug", { scaleX: 0.6, opacity: 0, duration: 0.3, ease: "power2.in" }, 2.75);
+
+      // flaps close, tape zips
+      tl.to(["#box-flaps", "#box-front-flaps"], { opacity: 0, duration: 0.08 }, 3.0);
+      tl.fromTo("#box-lid", { opacity: 0, y: -26 }, { opacity: 1, y: 0, duration: 0.12, ease: "power2.in" }, 2.94);
+      tl.fromTo("#tape", { strokeDasharray: 110, strokeDashoffset: 110 }, { strokeDashoffset: 0, duration: 0.2, ease: "power1.inOut" }, 3.15);
+
+      // anticipation → jump & spin → becomes the logo cube → lands on the road
+      tl.to("#actor", { scaleX: 1.16, scaleY: 0.82, duration: 0.1, ease: "power2.out" }, 3.4);
+      tl.to("#actor", { y: -280, scaleX: 0.9, scaleY: 1.12, duration: 0.3, ease: "power2.out" }, 3.5);
+      tl.to("#actor", { scaleX: 1, scaleY: 1, duration: 0.15, ease: "sine.inOut" }, 3.8);
+      tl.to("#actor-spin", { rotation: 360, duration: 0.55, ease: "power1.inOut" }, 3.5);
+      tl.to("#shadow", { scale: 0.45, opacity: 0.4, duration: 0.3, ease: "power2.out" }, 3.5);
+      tl.set("#box", { opacity: 0 }, 3.77);
+      tl.set("#hero", { opacity: 1 }, 3.77);
+      tl.fromTo("#spark", { scale: 0.4, opacity: 0.9, y: -280 }, { scale: 1.9, opacity: 0, duration: 0.45, ease: "power2.out" }, 3.77);
+      tl.to("#actor", { y: 0, duration: 0.27, ease: "power2.in" }, 3.8);
+      tl.to("#shadow", { scale: 1, opacity: 1, duration: 0.27, ease: "power2.in" }, 3.8);
+      tl.fromTo("#actor", { scaleX: 1.2, scaleY: 0.8 }, { scaleX: 1, scaleY: 1, duration: 0.5, ease: "elastic.out(1, 0.35)", immediateRender: false }, 4.07);
+      // the old room rises like a curtain and reveals the open road
+      tl.to("#roomA-move", { y: -1960, duration: 0.55, ease: "power3.inOut" }, 3.55);
+
+      /* ================= B · JOURNEY (4.1 – 11.0) ================= */
+      const J0 = 4.1, JD = 6.8, JE = "sine.inOut";
+      tl.fromTo("#mtn", { x: 0 }, { x: -700, duration: JD, ease: JE }, J0);
+      tl.fromTo("#city", { x: 0 }, { x: -1900, duration: JD, ease: JE }, J0);
+      tl.fromTo("#hills", { x: 0 }, { x: -2800, duration: JD, ease: JE }, J0);
+      tl.fromTo("#near", { x: 0 }, { x: -4200, duration: JD, ease: JE }, J0);
+      tl.fromTo("#door", { x: 0 }, { x: -4200, duration: JD, ease: JE }, J0);
+      tl.fromTo("#dash", { x: 0 }, { x: -4200, duration: JD, ease: JE }, J0);
+      tl.fromTo("#fore", { x: 0 }, { x: -5200, duration: JD, ease: JE }, J0);
+      tl.fromTo("#sun", { x: 0, y: 0 }, { x: -90, y: 150, duration: JD, ease: "none" }, J0);
+
+      tl.fromTo("#capJ .mask:nth-child(1) > span", { yPercent: 100 }, { yPercent: 0, duration: 0.7, ease: "power3.out" }, 4.75);
+      tl.fromTo("#capJ .mask:nth-child(2) > span", { yPercent: 100 }, { yPercent: 0, duration: 0.7, ease: "power3.out" }, 4.9);
+      tl.to("#capJ", { opacity: 0, duration: 0.45, ease: "power1.in" }, 9.4);
+
+      // 12 hops, landing on the beat; a full flip every 4th hop
+      let spin = 360;
+      for (let k = 0; k < 12; k++) {
+        const L = 5.0 + 0.5 * k, S = L - 0.36;
+        tl.to("#actor", { y: -150, scaleX: 0.94, scaleY: 1.07, duration: 0.18, ease: "power2.out" }, S);
+        tl.to("#actor", { y: 0, scaleX: 1, scaleY: 1, duration: 0.18, ease: "power2.in" }, S + 0.18);
+        tl.to("#actor", { scaleX: 1.13, scaleY: 0.86, duration: 0.05, ease: "power1.out" }, L);
+        tl.to("#actor", { scaleX: 1, scaleY: 1, duration: 0.09, ease: "power1.out" }, L + 0.05);
+        tl.to("#shadow", { scale: 0.62, opacity: 0.55, duration: 0.18, ease: "power2.out" }, S);
+        tl.to("#shadow", { scale: 1, opacity: 1, duration: 0.18, ease: "power2.in" }, S + 0.18);
+        if (k === 3 || k === 7 || k === 11) {
+          spin += 360;
+          tl.to("#actor-spin", { rotation: spin, duration: 0.36, ease: "power1.inOut" }, S);
+        }
+      }
+
+      /* ================= C · ARRIVAL (11.0 – 15.0) ================= */
+      tl.to("#actor", { x: 145, duration: 0.4, ease: "power1.inOut" }, 11.0);
+      tl.to("#actor", { y: -170, duration: 0.2, ease: "power2.out" }, 11.0);
+      tl.to("#actor", { y: 0, duration: 0.2, ease: "power2.in" }, 11.2);
+      tl.to("#shadow", { x: 145, duration: 0.4, ease: "power1.inOut" }, 11.0);
+      tl.fromTo("#actor", { scaleX: 1.14, scaleY: 0.86 }, { scaleX: 1, scaleY: 1, duration: 0.2, ease: "power2.out", immediateRender: false }, 11.4);
+      tl.fromTo("#door", { scaleX: 1 }, { scaleX: 0.06, duration: 0.25, ease: "power2.inOut", immediateRender: false }, 11.45);
+      tl.to("#actor", { scale: 0.45, y: -14, opacity: 0, duration: 0.25, ease: "power2.in" }, 11.62);
+      tl.to("#shadow", { opacity: 0, duration: 0.2 }, 11.62);
+      tl.fromTo("#land-cam", { scale: 1 }, { scale: 14, duration: 0.42, ease: "power3.in" }, 11.8);
+
+      // new room: the cube drops in, unfolds, everything springs into place
+      tl.fromTo("#b-flash", { opacity: 1 }, { opacity: 0, duration: 0.3, ease: "power1.out" }, 12.2);
+      tl.set("#actor", { x: 0, y: -1450, scale: 1, scaleX: 1, scaleY: 1, opacity: 1 }, 12.2);
+      tl.set("#shadow", { x: 0, scale: 0.3, opacity: 0 }, 12.2);
+      tl.to("#actor", { y: 0, duration: 0.33, ease: "power2.in" }, 12.22);
+      tl.to("#shadow", { scale: 1, opacity: 1, duration: 0.33, ease: "power2.in" }, 12.22);
+      tl.fromTo("#actor", { scaleX: 1.22, scaleY: 0.78 }, { scaleX: 1, scaleY: 1, duration: 0.18, ease: "power2.out", immediateRender: false }, 12.55);
+      tl.to("#h-top", { y: -90, opacity: 0, duration: 0.35, ease: "power2.out" }, 12.7);
+      tl.to("#h-left", { x: -80, y: 40, opacity: 0, duration: 0.35, ease: "power2.out" }, 12.7);
+      tl.to("#h-right", { x: 80, y: 40, opacity: 0, duration: 0.35, ease: "power2.out" }, 12.7);
+      tl.to("#shadow", { opacity: 0, duration: 0.3 }, 12.7);
+      tl.fromTo("#spark", { y: 0, scale: 0.4, opacity: 0.9 }, { scale: 2.6, opacity: 0, duration: 0.6, ease: "power2.out", immediateRender: false }, 12.7);
+
+      const flyOut = {{FLY_OUT}};
+      tl.fromTo("#b-rug", { scaleX: 0, opacity: 0 }, { scaleX: 1, opacity: 1, duration: 0.6, ease: "elastic.out(1, 0.5)" }, 12.75);
+      flyOut.forEach((it) => {
+        tl.fromTo(it.id, { x: 540 - it.cx, y: 1230 - it.cy, scale: 0.1, opacity: 0 }, { x: 0, y: 0, scale: 1, opacity: 1, duration: 0.55, ease: "back.out(1.7)" }, it.t);
+      });
+      flyOut.forEach((it) => {
+        if (it.swing) tl.fromTo(it.id, { rotation: 16 }, { rotation: 0, duration: 1.3, ease: "elastic.out(1, 0.25)", immediateRender: false }, it.t + 0.4);
+        if (it.grow) tl.fromTo(it.id + " .leaves", { scale: 0.2, transformOrigin: "50% 100%" }, { scale: 1, duration: 0.6, ease: "back.out(2.2)" }, it.t + 0.25);
+      });
+      if ({{HAS_GLOW}}) tl.fromTo("#b-glow", { opacity: 0 }, { opacity: 1, duration: 0.5, ease: "power1.out" }, 13.5);
+      tl.fromTo("#capB .mask > span", { yPercent: 100 }, { yPercent: 0, duration: 0.7, ease: "power3.out" }, 13.35);
+      tl.fromTo("#iris", { scale: 0 }, { scale: 8.5, duration: 0.45, ease: "power3.in" }, 14.58);
+
+      /* ================= D · END CARD (15.0 – 21.0) ================= */
+      tl.fromTo("#e-left", { x: -620, y: 220, rotation: -40 }, { x: 0, y: 0, rotation: 0, duration: 0.75, ease: "back.out(1.2)" }, 15.15);
+      tl.fromTo("#e-right", { x: 620, y: 300, rotation: 40 }, { x: 0, y: 0, rotation: 0, duration: 0.75, ease: "back.out(1.2)" }, 15.2);
+      tl.fromTo("#e-top", { y: -760, rotation: 25 }, { y: 0, rotation: 0, duration: 0.7, ease: "back.out(1.2)" }, 15.25);
+      tl.fromTo("#e-cube", { scaleX: 1.08, scaleY: 0.9 }, { scaleX: 1, scaleY: 1, duration: 0.6, ease: "elastic.out(1, 0.4)" }, 15.95);
+      tl.fromTo("#e-cube", { y: 0 }, { y: -10, duration: 1.0, ease: "sine.inOut", repeat: 3, yoyo: true, immediateRender: false }, 16.7);
+      tl.fromTo("#e-word .l", { y: 60, opacity: 0 }, { y: 0, opacity: 1, duration: 0.55, ease: "expo.out", stagger: 0.05 }, 16.05);
+      tl.fromTo("#e-dot", { scale: 0 }, { scale: 1, duration: 0.4, ease: "back.out(3.5)" }, 16.3);
+      tl.fromTo("#e-slogan .mask > span", { yPercent: 100 }, { yPercent: 0, duration: 0.7, ease: "power3.out" }, 16.8);
+      tl.fromTo("#e-pill", { y: 24, scale: 0.85, opacity: 0 }, { y: 0, scale: 1, opacity: 1, duration: 0.5, ease: "back.out(1.8)" }, 17.4);
+      tl.fromTo("#e-url", { opacity: 0 }, { opacity: 1, duration: 0.6, ease: "power1.out" }, 17.75);
+
+      window.__timelines["main"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

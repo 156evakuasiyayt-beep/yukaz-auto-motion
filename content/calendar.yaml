@@ -1,0 +1,92 @@
+# Yük.az — daily reel content calendar.
+# One topic per day, rotating. Each topic has safe default on-screen texts (used if
+# the Claude call fails) and a brief that Claude uses to write the caption.
+#
+# On-screen text limits (enforced in code):
+#   hook ≤ 22 · journey_1 ≤ 20 · journey_2 ≤ 24 · final_1 + final_2 ≤ 26
+
+brand:
+  name: "Yük.az"
+  phone: "050 209 62 99"
+  whatsapp: "+994 50 209 62 99"
+  website: "yuk.az"
+  slogan: "Yükünüz bizə əmanət!"
+  facts:
+    - "Bakı və bütün Azərbaycan üzrə yükdaşıma: ev, ofis, əşya, xüsusi yüklər, rayonlararası daşıma, evakuator"
+    - "Hər daşınma əlavə ödənişsiz sığortalanır"
+    - "Qiymət əvvəlcədən razılaşdırılır — sonradan əlavə ödəniş yoxdur"
+    - "Sökmə, qablaşdırma, daşıma və yenidən quraşdırma bir qiymətə"
+    - "7/24 sifariş xətti, təlim keçmiş yükdaşıyanlar"
+    - "Ofis köçündə qutular nömrələnir ki, iş dayanmasın"
+    - "Sifariş: zəng, WhatsApp və ya saytdakı forma"
+
+topics:
+  - id: home-move
+    room_set: home
+    brief: "Ev köçü stresli görünür, amma Yük.az ilə hər şey sakit və planlı keçir."
+    texts: {hook: "Köçürsünüz?", journey_1: "Bakıdan —", journey_2: "bütün Azərbaycana.", final_1: "Hər şey", final_2: "yerində."}
+
+  - id: office-move
+    room_set: office
+    brief: "Ofis köçü: qutular nömrələnir, iş dayanmır, bazar ertəsi ofis hazırdır."
+    texts: {hook: "Ofisiniz köçür?", journey_1: "İş dayanmır —", journey_2: "biz daşıyırıq.", final_1: "Ofisiniz", final_2: "hazırdır."}
+
+  - id: appliances
+    room_set: appliance
+    brief: "Soyuducu, paltaryuyan, televizor — məişət texnikası ehtiyatla daşınır və yerində quraşdırılır."
+    texts: {hook: "Soyuducu, paltaryuyan?", journey_1: "Ehtiyatla —", journey_2: "ünvana qədər.", final_1: "Quraşdırılıb,", final_2: "hazırdır."}
+
+  - id: insurance
+    room_set: home
+    brief: "Hər daşınma əlavə ödənişsiz sığortalanır — əşyalarınız üçün narahat olmayın."
+    texts: {hook: "Yükünüz sığortalı?", journey_1: "Hər daşınma —", journey_2: "əlavə ödənişsiz sığorta.", final_1: "Narahatlıq", final_2: "yoxdur."}
+
+  - id: fixed-price
+    room_set: appliance
+    brief: "Qiymət əvvəlcədən razılaşdırılır, sonradan heç bir əlavə ödəniş çıxmır."
+    texts: {hook: "Qiymət sürprizi?", journey_1: "Qiymət əvvəlcədən —", journey_2: "sonra əlavə yoxdur.", final_1: "Söz verdik,", final_2: "tutduq."}
+
+  - id: always-open
+    room_set: home
+    brief: "7/24 sifariş xətti — gecə də, bayram günü də zəng edə bilərsiniz."
+    texts: {hook: "Gecə də köçmək olar?", journey_1: "7/24 —", journey_2: "biz yoldayıq.", final_1: "Səhər artıq", final_2: "yeni evdə."}
+
+  - id: regions
+    room_set: home
+    brief: "Rayonlararası daşıma: Bakıdan Gəncəyə, Şəkiyə, Lənkərana, Qubaya."
+    texts: {hook: "Rayona köçürsünüz?", journey_1: "Gəncə, Şəki,", journey_2: "Lənkəran, Quba...", final_1: "Hər yerə", final_2: "çatırıq."}
+
+  - id: assembly
+    room_set: home
+    brief: "Mebel sökülür, qablaşdırılır, daşınır və yeni evdə yenidən yığılır — hamısı bir qiymətə."
+    texts: {hook: "Mebeli kim sökəcək?", journey_1: "Sökürük, daşıyırıq —", journey_2: "yenidən yığırıq.", final_1: "Yığılıb,", final_2: "yerində."}
+
+  - id: packing
+    room_set: appliance
+    brief: "Peşəkar qablaşdırma: hər əşya ayrıca qorunur, streç plyonka ilə bükülür."
+    texts: {hook: "Qablaşdırma çətindir?", journey_1: "Hər əşya —", journey_2: "ayrıca qorunur.", final_1: "Bir cızıq", final_2: "belə yoxdur."}
+
+  - id: small-move
+    room_set: home
+    brief: "Az əşya da olsa — tək divan, soyuducu və ya bir neçə qutu — kiçik maşınla tez gəlirik."
+    texts: {hook: "Cəmi bir divan?", journey_1: "Kiçik yük də —", journey_2: "bizim üçün vacibdir.", final_1: "Tez,", final_2: "rahat."}
+
+  - id: weekend-office
+    room_set: office
+    brief: "Ofisi həftə sonu köçürün — bazar ertəsi komanda hazır iş yerində başlasın."
+    texts: {hook: "Həftə sonu köçürük?", journey_1: "Bazar ertəsi —", journey_2: "ofis hazır.", final_1: "İş masanız", final_2: "yerində."}
+
+  - id: heavy-items
+    room_set: appliance
+    brief: "Seyf, piano, dəzgah kimi ağır və xüsusi yüklər — peşəkar avadanlıq və təcrübə ilə."
+    texts: {hook: "Ağır yük?", journey_1: "Seyf, piano —", journey_2: "peşəkar əllərdə.", final_1: "Təhlükəsiz", final_2: "çatdı."}
+
+  - id: family-move
+    room_set: home
+    brief: "Böyük ailə köçü: hər otaq üçün nömrələnmiş qutular, uşaq otağı da daxil hər şey yerində."
+    texts: {hook: "Böyük ailə köçü?", journey_1: "Hər otaq —", journey_2: "öz qutusunda.", final_1: "Uşaq otağı da", final_2: "hazırdır."}
+
+  - id: whatsapp-order
+    room_set: office
+    brief: "Sifariş vermək asandır: WhatsApp-a bir mesaj yazın, qiymət və vaxtı razılaşdıraq."
+    texts: {hook: "Bir mesaj kifayətdir.", journey_1: "WhatsApp-a yaz —", journey_2: "qalanı bizdə.", final_1: "Hər şey", final_2: "planlı."}

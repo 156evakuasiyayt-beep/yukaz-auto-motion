@@ -1,0 +1,90 @@
+name: Daily Reel
+
+on:
+  schedule:
+    - cron: "0 4 * * *" # 08:00 Asia/Baku (UTC+4) — build, then publish at 09:00 after approval
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Tarix YYYY-MM-DD (boş = bu gün)"
+        required: false
+      platforms:
+        description: "Platformalar"
+        default: "instagram,facebook"
+      publish_now:
+        description: "09:00-ı gözləmədən dərhal paylaş"
+        type: boolean
+        default: false
+
+concurrency:
+  group: daily-reel
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install ffmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - name: Install Python deps
+        run: pip install -r requirements.txt
+      - name: Build reel
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          ARGS="--out out"
+          if [ -n "${{ inputs.date }}" ]; then ARGS="$ARGS --date ${{ inputs.date }}"; fi
+          python -m autopost.build $ARGS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reel
+          retention-days: 14
+          path: |
+            out/reel.mp4
+            out/cover.jpg
+            out/caption.txt
+            out/plan.json
+      - name: Send preview to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python -m autopost.notify preview --out out --url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    # "production" environment has a required reviewer → this job waits for your approval.
+    # Remove the reviewer in Settings → Environments to switch to fully automatic posting.
+    environment: production
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: reel
+          path: out
+      - name: Publish
+        env:
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          WAIT="--wait-until 09:00"
+          if [ "${{ inputs.publish_now }}" = "true" ]; then WAIT=""; fi
+          python -m autopost.publish --out out --platforms "${{ inputs.platforms || 'instagram,facebook' }}" $WAIT
