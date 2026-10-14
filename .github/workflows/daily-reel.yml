@@ -48,21 +48,22 @@ jobs:
           ARGS="--out out"
           if [ -n "${{ inputs.date }}" ]; then ARGS="$ARGS --date ${{ inputs.date }}"; fi
           python -m autopost.build $ARGS
+      - name: Send preview to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_IDS: ${{ secrets.TELEGRAM_CHAT_IDS }}
+        run: python -m autopost.notify preview --out out
       - uses: actions/upload-artifact@v4
         with:
           name: reel
           retention-days: 14
+          if-no-files-found: error
           path: |
             out/reel.mp4
             out/cover.jpg
             out/caption.txt
             out/plan.json
             out/telegram.json
-      - name: Send preview to Telegram
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_IDS: ${{ secrets.TELEGRAM_CHAT_IDS }}
-        run: python -m autopost.notify preview --out out
 
   publish:
     needs: build
