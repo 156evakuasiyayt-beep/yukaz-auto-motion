@@ -1,0 +1,54 @@
+name: Publish existing reel
+
+# Re-publish a reel that an earlier "Daily Reel" run already built — no AI calls, no rebuild.
+# Sends the Telegram preview again, waits for ✅, then posts.
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "Daily Reel run ID (URL-dəki rəqəm: …/actions/runs/<ID>)"
+        required: true
+      platforms:
+        description: "Platformalar"
+        default: "instagram,facebook"
+      publish_now:
+        description: "09:00-ı gözləmədən dərhal paylaş"
+        type: boolean
+        default: true
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: reel
+          path: out
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Drop the old approval state (a fresh preview is sent)
+        run: rm -f out/telegram.json
+      - name: Publish
+        env:
+          META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_IDS: ${{ secrets.TELEGRAM_CHAT_IDS }}
+        run: |
+          WAIT="--wait-until 09:00"
+          if [ "${{ inputs.publish_now }}" = "true" ]; then WAIT=""; fi
+          python -m autopost.publish --out out --platforms "${{ inputs.platforms }}" \
+            --approval "${{ vars.APPROVAL || 'telegram' }}" --approval-deadline 23:59 $WAIT
