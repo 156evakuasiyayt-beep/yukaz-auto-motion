@@ -1,8 +1,9 @@
 name: Daily Reel
 
 on:
-  schedule:
-    - cron: "0 4 * * *" # 08:00 Asia/Baku (UTC+4) — build, then publish at 09:00 after approval
+  # Daily schedule paused at the client's request (2026-10-14). To resume, restore:
+  # schedule:
+  #   - cron: "0 4 * * *" # 08:00 Asia/Baku (UTC+4)
   workflow_dispatch:
     inputs:
       date:
