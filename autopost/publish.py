@@ -58,6 +58,9 @@ def main():
     if a.approval == "telegram":
         if not notify.enabled():
             sys.exit("approval=telegram but TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_IDS are not set")
+        if not (out / "telegram.json").exists():
+            log.warning("no telegram.json from the build job — sending the preview from here")
+            notify.send_preview(out)
         decision, who = notify.wait_for_decision(out, _today_at(a.approval_deadline))
         log.info("approval: %s (%s)", decision, who)
         if decision != "approve":
