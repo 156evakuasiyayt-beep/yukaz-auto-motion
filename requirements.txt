@@ -7,3 +7,5 @@ numpy>=1.26
 scipy>=1.11
 requests>=2.31
 tzdata>=2024.1
+gdown>=5.2
+pynacl>=1.5

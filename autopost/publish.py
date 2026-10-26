@@ -1,8 +1,8 @@
-"""Publish today's built reel.
+"""Publish today's built or Google Drive reel.
 
-Usage: python -m autopost.publish --out out [--platforms instagram,facebook] [--wait-until 09:00]
+Usage: python -m autopost.publish --out out [--platforms instagram,facebook,tiktok] [--wait-until 09:00]
                                    [--approval telegram|none] [--approval-deadline 14:00] [--dry-run]
-Each platform is attempted independently; the run fails (exit 1) if any platform failed.
+Each platform is attempted independently; the run fails (exit 1) if any required platform failed.
 """
 import argparse
 import datetime as dt
@@ -13,7 +13,7 @@ import sys
 import time
 from pathlib import Path
 
-from . import meta, notify
+from . import drive, meta, notify, tiktok
 from .plan import BAKU
 
 log = logging.getLogger("autopost.publish")
@@ -37,7 +37,7 @@ def main():
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="out")
-    ap.add_argument("--platforms", default="instagram,facebook")
+    ap.add_argument("--platforms", default="instagram,facebook,tiktok")
     ap.add_argument("--wait-until")
     ap.add_argument("--approval", choices=["telegram", "none"], default="telegram")
     ap.add_argument("--approval-deadline", default="14:00", help="HH:MM Asia/Baku; no answer by then → skip today")
@@ -46,6 +46,8 @@ def main():
 
     out = Path(a.out)
     video, cover = out / "reel.mp4", out / "cover.jpg"
+    if not cover.exists():
+        cover = None
     caption = (out / "caption.txt").read_text(encoding="utf-8")
     plan = json.loads((out / "plan.json").read_text(encoding="utf-8"))
     platforms = [p.strip() for p in a.platforms.split(",") if p.strip()]
@@ -73,7 +75,7 @@ def main():
     results, failed = {}, []
 
     cover_url = None
-    if "instagram" in platforms and page_id:
+    if "instagram" in platforms and page_id and cover:
         try:
             cover_url = meta.hosted_cover_url(page_id, cover)
         except meta.MetaError as e:
@@ -85,6 +87,12 @@ def main():
                 results[p] = meta.publish_instagram(ig_id, video, caption, cover_url)
             elif p == "facebook":
                 results[p] = meta.publish_facebook(page_id, video, caption, cover)
+            elif p == "tiktok":
+                if not os.environ.get("TIKTOK_ACCESS_TOKEN", "").strip():
+                    log.warning("TIKTOK_ACCESS_TOKEN not set yet — skipping TikTok")
+                    results[p] = {"skipped": "TIKTOK_ACCESS_TOKEN not set"}
+                    continue
+                results[p] = tiktok.publish_tiktok(video, caption)
             else:
                 raise ValueError(f"unknown platform {p}")
             log.info("%s ✓ %s", p, results[p])
@@ -94,10 +102,19 @@ def main():
             results[p] = {"error": str(e)[:500]}
 
     (out / "publish_result.json").write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    # Mark Google Drive date folder as published if at least one platform succeeded
+    if plan.get("source") == "google_drive" and any("id" in r for r in results.values() if isinstance(r, dict)):
+        drive.mark_date_published(plan["date"], results)
+
     lines = [f"📣 Yük.az — {plan['date']} paylaşım nəticəsi"]
     for p, r in results.items():
-        lines.append(f"{'❌' if 'error' in r else '✅'} {p}: {r.get('permalink') or r.get('error')}")
-    notify.send_text("\n".join(lines))
+        if "skipped" in r:
+            lines.append(f"⚠️ {p}: {r['skipped']}")
+        else:
+            lines.append(f"{'❌' if 'error' in r else '✅'} {p}: {r.get('permalink') or r.get('error')}")
+    if notify.enabled():
+        notify.send_text("\n".join(lines))
     if failed:
         sys.exit(1)
 
