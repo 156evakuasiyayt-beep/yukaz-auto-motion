@@ -1,0 +1,23 @@
+{
+  "published_dates": [
+    "2026-10-26"
+  ],
+  "history": {
+    "2026-10-26": {
+      "published_at": "2026-10-26T17:58:32.258808+04:00",
+      "results": {
+        "instagram": {
+          "id": "18040909616840241",
+          "permalink": "https://www.instagram.com/reel/De9cUtsjpOj/"
+        },
+        "facebook": {
+          "id": "2132679840683269",
+          "permalink": "https://www.facebook.com/reel/2132679840683269"
+        },
+        "tiktok": {
+          "skipped": "TikTok token not set"
+        }
+      }
+    }
+  }
+}
