@@ -1,6 +1,7 @@
-"""Publish a video to TikTok via the TikTok Content Posting API v2.
+"""Publish a video to TikTok (Public Direct Post via TikTok Studio session cookie, or Content Posting API v2).
 
 Env:
+  TIKTOK_SESSION_ID     TikTok 'sessionid' cookie from logged-in browser (posts directly as Public via TikTok Studio)
   TIKTOK_ACCESS_TOKEN   OAuth2 user access token (or auto-refreshed via below vars)
   TIKTOK_CLIENT_KEY     TikTok App Client Key (for auto-refreshing token daily)
   TIKTOK_CLIENT_SECRET  TikTok App Client Secret
@@ -8,6 +9,7 @@ Env:
 """
 import logging
 import os
+import time
 from pathlib import Path
 
 import requests
@@ -20,13 +22,102 @@ class TikTokError(RuntimeError):
     pass
 
 
+def publish_tiktok_studio_session(video: Path, caption: str, session_id: str) -> dict:
+    """
+    Uses Playwright in headless mode with the user's TikTok `sessionid` cookie
+    to upload and publish the video directly as Public (Everyone) via TikTok Studio Web.
+    """
+    from playwright.sync_api import sync_playwright
+
+    log.info("Publishing to TikTok Studio (Public) via TIKTOK_SESSION_ID...")
+    with sync_playwright() as p:
+        browser = p.chromium.launch(
+            headless=True,
+            args=[
+                "--no-sandbox",
+                "--disable-blink-features=AutomationControlled",
+                "--disable-dev-shm-usage",
+            ],
+        )
+        context = browser.new_context(
+            viewport={"width": 1440, "height": 900},
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/131.0.0.0 Safari/537.36"
+            ),
+            locale="en-US",
+        )
+        cookies = []
+        for name in ("sessionid", "sessionid_ss", "sid_tt"):
+            for domain in (".tiktok.com", ".www.tiktok.com"):
+                cookies.append(
+                    {
+                        "name": name,
+                        "value": session_id,
+                        "domain": domain,
+                        "path": "/",
+                        "httpOnly": True,
+                        "secure": True,
+                    }
+                )
+        context.add_cookies(cookies)
+
+        page = context.new_page()
+        page.goto("https://www.tiktok.com/tiktokstudio/upload?lang=en", wait_until="domcontentloaded", timeout=60000)
+        time.sleep(6)
+
+        if "/login" in page.url:
+            browser.close()
+            raise TikTokError("TIKTOK_SESSION_ID cookie expired or invalid (redirected to /login)")
+
+        # Attach video file
+        file_input = page.locator("input[type='file']").first
+        file_input.set_input_files(str(video))
+        log.info("TikTok Studio: video file attached, waiting for upload completion...")
+
+        # Wait until caption editor appears and video finishes uploading
+        editor = page.locator("[contenteditable='true']").first
+        editor.wait_for(state="visible", timeout=90000)
+        time.sleep(3)
+
+        if caption:
+            editor.click()
+            page.keyboard.press("Control+A")
+            page.keyboard.press("Backspace")
+            # Insert caption without triggering hashtag popup locks
+            clean_caption = caption.replace("\r\n", "\n")
+            page.keyboard.insert_text(clean_caption[:2200])
+            time.sleep(2)
+            page.keyboard.press("Escape")
+
+        # Wait up to 120s for upload to finish (post button becomes enabled)
+        post_btn = page.locator(
+            "[data-e2e='post_video_button'], button:has-text('Post'), button:has-text('Paylaş')"
+        ).first
+        for _ in range(40):
+            try:
+                disabled = post_btn.get_attribute("disabled") or post_btn.get_attribute("aria-disabled")
+                if disabled not in ("true", "disabled", ""):
+                    break
+            except Exception:
+                pass
+            time.sleep(3)
+
+        time.sleep(5)
+        post_btn.scroll_into_view_if_needed()
+        post_btn.click(force=True)
+        log.info("TikTok Studio: clicked Post button, waiting for confirmation...")
+        time.sleep(12)
+        browser.close()
+        return {
+            "id": "studio_direct_post",
+            "mode": "public_direct_post",
+            "permalink": "https://www.tiktok.com/@yuk.az",
+        }
+
+
 def get_valid_access_token() -> str:
-    """
-    If TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET, and TIKTOK_REFRESH_TOKEN are configured,
-    automatically exchanges the refresh_token for a fresh access_token (since TikTok
-    access_tokens expire after 24h while refresh_tokens last 365 days).
-    Falls back to TIKTOK_ACCESS_TOKEN if refresh credentials are not set.
-    """
     client_key = os.environ.get("TIKTOK_CLIENT_KEY", "").strip()
     client_secret = os.environ.get("TIKTOK_CLIENT_SECRET", "").strip()
     refresh_token = os.environ.get("TIKTOK_REFRESH_TOKEN", "").strip()
@@ -51,7 +142,7 @@ def get_valid_access_token() -> str:
 
     tok = os.environ.get("TIKTOK_ACCESS_TOKEN", "").strip()
     if not tok:
-        raise TikTokError("Neither TIKTOK_REFRESH_TOKEN nor TIKTOK_ACCESS_TOKEN is configured")
+        raise TikTokError("Neither TIKTOK_SESSION_ID, TIKTOK_REFRESH_TOKEN, nor TIKTOK_ACCESS_TOKEN is configured")
     return tok
 
 
@@ -73,10 +164,16 @@ def _upload_chunks(upload_url: str, video: Path):
 
 def publish_tiktok(video: Path, caption: str, cover_timestamp_ms: int = 1000) -> dict:
     """
-    First attempts Direct Post (/post/publish/video/init/).
-    In Sandbox mode, Direct Post requires privacy_level=SELF_ONLY (or Inbox upload).
-    Automatically tries PUBLIC_TO_EVERYONE -> SELF_ONLY (Sandbox) -> Inbox Upload.
+    1. If TIKTOK_SESSION_ID is set, posts directly as Public via TikTok Studio Web.
+    2. Otherwise uses TikTok Content Posting API v2 (Direct Post -> Inbox fallback).
     """
+    session_id = os.environ.get("TIKTOK_SESSION_ID", "").strip()
+    if session_id:
+        try:
+            return publish_tiktok_studio_session(video, caption, session_id)
+        except Exception as e:
+            log.warning("TikTok Studio session upload failed (%s), falling back to API", e)
+
     tok = get_valid_access_token()
     size = video.stat().st_size
     headers = {

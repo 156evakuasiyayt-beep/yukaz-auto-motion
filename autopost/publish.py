@@ -88,7 +88,7 @@ def main():
             elif p == "facebook":
                 results[p] = meta.publish_facebook(page_id, video, caption, cover)
             elif p == "tiktok":
-                if not (os.environ.get("TIKTOK_REFRESH_TOKEN", "").strip() or os.environ.get("TIKTOK_ACCESS_TOKEN", "").strip()):
+                if not any(os.environ.get(k, "").strip() for k in ("TIKTOK_SESSION_ID", "TIKTOK_REFRESH_TOKEN", "TIKTOK_ACCESS_TOKEN")):
                     log.warning("TikTok credentials not set yet — skipping TikTok")
                     results[p] = {"skipped": "TikTok token not set"}
                     continue
