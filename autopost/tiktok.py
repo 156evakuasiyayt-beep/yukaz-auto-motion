@@ -24,11 +24,6 @@ class TikTokError(RuntimeError):
 
 
 def _discover_tiktok_idc(session_id: str) -> tuple[str, dict]:
-    """
-    Probes TikTok's passport endpoint across data centers (alisg, maliva, eu-ttp2, useast2a)
-    to find which tt-target-idc validates the user's sessionid from a cloud runner IP.
-    Also supports JSON cookie arrays if the user pasted a Cookie-Editor JSON export.
-    """
     extra_cookies = {}
     raw = session_id.strip()
     if raw.startswith("[") or raw.startswith("{"):
@@ -91,6 +86,26 @@ def _discover_tiktok_idc(session_id: str) -> tuple[str, dict]:
     }
 
 
+def _dismiss_tiktok_modals(page):
+    """Dismisses any TikTok Studio onboarding tooltips or floating portals blocking clicks."""
+    try:
+        for label in ("Cancel", "Got it", "Not now", "Close", "Dismiss"):
+            btn = page.locator(f"[data-floating-ui-portal] button:has-text('{label}')").first
+            if btn.count() > 0 and btn.is_visible():
+                btn.click(force=True)
+                time.sleep(0.5)
+    except Exception:
+        pass
+    try:
+        page.evaluate(
+            """() => {
+                document.querySelectorAll('[data-floating-ui-portal], .joyride-portal, .react-joyride__spotlight').forEach(el => el.remove());
+            }"""
+        )
+    except Exception:
+        pass
+
+
 def publish_tiktok_studio_session(video: Path, caption: str, session_id: str) -> dict:
     from playwright.sync_api import sync_playwright
 
@@ -139,6 +154,8 @@ def publish_tiktok_studio_session(video: Path, caption: str, session_id: str) ->
             browser.close()
             raise TikTokError(f"TIKTOK_SESSION_ID redirected to login ({page.url})")
 
+        _dismiss_tiktok_modals(page)
+
         target_frame = None
         for _ in range(10):
             for frame in page.frames:
@@ -166,35 +183,55 @@ def publish_tiktok_studio_session(video: Path, caption: str, session_id: str) ->
         work_ctx = target_frame or page
         editor = work_ctx.locator("[contenteditable='true']").first
         editor.wait_for(state="visible", timeout=90000)
-        time.sleep(4)
+        time.sleep(5)
+
+        _dismiss_tiktok_modals(page)
 
         if caption:
-            editor.click()
+            editor.click(force=True)
+            time.sleep(0.5)
             page.keyboard.press("Control+A")
             page.keyboard.press("Backspace")
             clean_caption = caption.replace("\r\n", "\n")
             page.keyboard.insert_text(clean_caption[:2200])
             time.sleep(2)
             page.keyboard.press("Escape")
+            log.info("TikTok Studio: caption inserted (%d chars)", len(clean_caption))
 
+        # Wait up to 120s for video upload to reach 100% and Post button to become enabled
         post_btn = work_ctx.locator(
             "[data-e2e='post_video_button'], button:has-text('Post'), button:has-text('Paylaş')"
         ).first
-        for _ in range(40):
+        for i in range(40):
+            _dismiss_tiktok_modals(page)
             try:
                 disabled = post_btn.get_attribute("disabled") or post_btn.get_attribute("aria-disabled")
                 if disabled not in ("true", "disabled", ""):
+                    log.info("TikTok Studio: Post button is enabled (check %d)", i + 1)
                     break
             except Exception:
                 pass
             time.sleep(3)
 
-        time.sleep(5)
+        time.sleep(4)
+        _dismiss_tiktok_modals(page)
         post_btn.scroll_into_view_if_needed()
         post_btn.click(force=True)
-        log.info("TikTok Studio: clicked Post button, waiting for confirmation...")
-        time.sleep(12)
-        log.info("TikTok Studio post-click URL: %s", page.url)
+        log.info("TikTok Studio: clicked Post button, checking for confirmation dialogs...")
+
+        for _ in range(6):
+            time.sleep(3)
+            try:
+                confirm_btn = page.locator(
+                    "button:has-text('Post now'), button:has-text('Continue to post'), [data-e2e='post_confirm_button']"
+                ).first
+                if confirm_btn.count() > 0 and confirm_btn.is_visible():
+                    log.info("TikTok Studio: clicking secondary confirmation button...")
+                    confirm_btn.click(force=True)
+            except Exception:
+                pass
+
+        log.info("TikTok Studio final URL: %s", page.url)
         browser.close()
         return {
             "id": "studio_direct_post",
