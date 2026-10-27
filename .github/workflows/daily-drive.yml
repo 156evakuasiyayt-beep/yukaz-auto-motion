@@ -2,7 +2,7 @@ name: Daily Google Drive Post (09:00 Baku)
 
 on:
   schedule:
-    - cron: "0 5 * * *" # Hər gün Bakı vaxtı ilə səhər 09:00-da (UTC 05:00)
+    - cron: "45 4 * * *" # Bakı vaxtı ilə 08:45-də oyanır, faylları endirir və dəqiq 09:00-da paylaşır
   workflow_dispatch:
     inputs:
       date:
@@ -15,6 +15,10 @@ on:
         description: "Əvvəl paylaşılıbsa belə yenidən paylaş"
         type: boolean
         default: false
+      publish_now:
+        description: "09:00-ı gözləmədən dərhal paylaş"
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -47,7 +51,7 @@ jobs:
           if [ "${{ inputs.force }}" = "true" ]; then ARGS="$ARGS --force"; fi
           python -m autopost.drive $ARGS
 
-      - name: Publish to Instagram, Facebook & TikTok
+      - name: Publish to Instagram, Facebook & TikTok at 09:00 Baku
         env:
           META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
           FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
@@ -59,9 +63,11 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_IDS: ${{ secrets.TELEGRAM_CHAT_IDS }}
         run: |
+          WAIT="--wait-until 09:00"
+          if [ "${{ inputs.publish_now }}" = "true" ]; then WAIT=""; fi
           python -m autopost.publish --out out \
             --platforms "${{ inputs.platforms || 'instagram,facebook,tiktok' }}" \
-            --approval none
+            --approval none $WAIT
 
       - name: Record published Google Drive date in repository
         run: |
