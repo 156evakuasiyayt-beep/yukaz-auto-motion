@@ -50,7 +50,7 @@ def publish_tiktok_studio_session(video: Path, caption: str, session_id: str) ->
         )
         cookies = []
         for name in ("sessionid", "sessionid_ss", "sid_tt"):
-            for domain in (".tiktok.com", ".www.tiktok.com"):
+            for domain in (".tiktok.com", "www.tiktok.com"):
                 cookies.append(
                     {
                         "name": name,
@@ -59,40 +59,66 @@ def publish_tiktok_studio_session(video: Path, caption: str, session_id: str) ->
                         "path": "/",
                         "httpOnly": True,
                         "secure": True,
+                        "sameSite": "None",
                     }
                 )
         context.add_cookies(cookies)
 
         page = context.new_page()
         page.goto("https://www.tiktok.com/tiktokstudio/upload?lang=en", wait_until="domcontentloaded", timeout=60000)
-        time.sleep(6)
+        time.sleep(10)
 
-        if "/login" in page.url:
+        log.info("TikTok Studio landed on URL: %s | Title: %s", page.url, page.title())
+        try:
+            body_preview = " ".join((page.locator("body").inner_text(timeout=5000) or "").split())[:300]
+            log.info("TikTok Studio body preview: %s", body_preview)
+        except Exception as e:
+            log.warning("Could not read body text: %s", e)
+
+        if "/login" in page.url or "login" in page.title().lower():
             browser.close()
-            raise TikTokError("TIKTOK_SESSION_ID cookie expired or invalid (redirected to /login)")
+            raise TikTokError(f"TIKTOK_SESSION_ID redirected to login ({page.url})")
 
-        # Attach video file
-        file_input = page.locator("input[type='file']").first
-        file_input.set_input_files(str(video))
-        log.info("TikTok Studio: video file attached, waiting for upload completion...")
+        # Search all frames for input[type='file']
+        target_frame = None
+        for _ in range(10):
+            for frame in page.frames:
+                try:
+                    if frame.locator("input[type='file']").count() > 0:
+                        target_frame = frame
+                        break
+                except Exception:
+                    pass
+            if target_frame:
+                break
+            time.sleep(2)
 
-        # Wait until caption editor appears and video finishes uploading
-        editor = page.locator("[contenteditable='true']").first
+        if target_frame:
+            log.info("Found input[type='file'] in frame: %s", target_frame.url)
+            target_frame.locator("input[type='file']").first.set_input_files(str(video))
+        else:
+            log.info("No direct input[type='file'] found; trying file chooser click...")
+            with page.expect_file_chooser(timeout=20000) as fc_info:
+                btn = page.locator("button:has-text('Select'), [data-e2e*='select'], [class*='upload']").first
+                btn.click(force=True)
+            fc_info.value.set_files(str(video))
+
+        log.info("TikTok Studio: video file attached, waiting for editor...")
+        work_ctx = target_frame or page
+        editor = work_ctx.locator("[contenteditable='true']").first
         editor.wait_for(state="visible", timeout=90000)
-        time.sleep(3)
+        time.sleep(4)
 
         if caption:
             editor.click()
             page.keyboard.press("Control+A")
             page.keyboard.press("Backspace")
-            # Insert caption without triggering hashtag popup locks
             clean_caption = caption.replace("\r\n", "\n")
             page.keyboard.insert_text(clean_caption[:2200])
             time.sleep(2)
             page.keyboard.press("Escape")
 
-        # Wait up to 120s for upload to finish (post button becomes enabled)
-        post_btn = page.locator(
+        post_btn = work_ctx.locator(
             "[data-e2e='post_video_button'], button:has-text('Post'), button:has-text('Paylaş')"
         ).first
         for _ in range(40):
@@ -109,6 +135,7 @@ def publish_tiktok_studio_session(video: Path, caption: str, session_id: str) ->
         post_btn.click(force=True)
         log.info("TikTok Studio: clicked Post button, waiting for confirmation...")
         time.sleep(12)
+        log.info("TikTok Studio post-click URL: %s", page.url)
         browser.close()
         return {
             "id": "studio_direct_post",
@@ -163,10 +190,6 @@ def _upload_chunks(upload_url: str, video: Path):
 
 
 def publish_tiktok(video: Path, caption: str, cover_timestamp_ms: int = 1000) -> dict:
-    """
-    1. If TIKTOK_SESSION_ID is set, posts directly as Public via TikTok Studio Web.
-    2. Otherwise uses TikTok Content Posting API v2 (Direct Post -> Inbox fallback).
-    """
     session_id = os.environ.get("TIKTOK_SESSION_ID", "").strip()
     if session_id:
         try:
