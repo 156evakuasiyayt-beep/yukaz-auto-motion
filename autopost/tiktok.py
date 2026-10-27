@@ -7,6 +7,7 @@ Env:
   TIKTOK_CLIENT_SECRET  TikTok App Client Secret
   TIKTOK_REFRESH_TOKEN  OAuth2 refresh token (valid for 365 days)
 """
+import json
 import logging
 import os
 import time
@@ -22,14 +23,80 @@ class TikTokError(RuntimeError):
     pass
 
 
+def _discover_tiktok_idc(session_id: str) -> tuple[str, dict]:
+    """
+    Probes TikTok's passport endpoint across data centers (alisg, maliva, eu-ttp2, useast2a)
+    to find which tt-target-idc validates the user's sessionid from a cloud runner IP.
+    Also supports JSON cookie arrays if the user pasted a Cookie-Editor JSON export.
+    """
+    extra_cookies = {}
+    raw = session_id.strip()
+    if raw.startswith("[") or raw.startswith("{"):
+        try:
+            parsed = json.loads(raw)
+            if isinstance(parsed, list):
+                for c in parsed:
+                    if isinstance(c, dict) and "name" in c and "value" in c:
+                        extra_cookies[c["name"]] = str(c["value"])
+                session_id = extra_cookies.get("sessionid") or extra_cookies.get("sessionid_ss") or session_id
+        except Exception:
+            pass
+    elif "=" in raw and ";" in raw:
+        for part in raw.split(";"):
+            if "=" in part:
+                k, v = part.strip().split("=", 1)
+                extra_cookies[k.strip()] = v.strip()
+        session_id = extra_cookies.get("sessionid") or extra_cookies.get("sessionid_ss") or session_id
+
+    log.info("Checking TikTok sessionid (len=%d, extra_cookies=%d)...", len(session_id), len(extra_cookies))
+
+    for idc in ("alisg", "maliva", "eu-ttp2", "useast2a", "useast5", "ap-northeast-1"):
+        cookies = {
+            "sessionid": session_id,
+            "sessionid_ss": session_id,
+            "sid_tt": session_id,
+            "tt-target-idc": idc,
+            "store-idc": idc,
+            **extra_cookies,
+        }
+        try:
+            r = requests.get(
+                "https://www.tiktok.com/passport/web/account/info/",
+                cookies=cookies,
+                headers={
+                    "User-Agent": (
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+                    )
+                },
+                timeout=15,
+            )
+            data = r.json() if r.content else {}
+            msg = data.get("message")
+            user_data = data.get("data") or {}
+            uname = user_data.get("username") or user_data.get("screen_name") or user_data.get("user_id_str")
+            resp_idc = r.cookies.get("tt-target-idc") or r.headers.get("x-tt-store-idc") or idc
+            log.info("Probe idc=%s -> message=%s, user=%s, resp_idc=%s", idc, msg, uname, resp_idc)
+            if msg == "success" and uname:
+                return resp_idc, cookies
+        except Exception as e:
+            log.warning("Probe idc=%s error: %s", idc, e)
+
+    return "alisg", {
+        "sessionid": session_id,
+        "sessionid_ss": session_id,
+        "sid_tt": session_id,
+        "tt-target-idc": "alisg",
+        **extra_cookies,
+    }
+
+
 def publish_tiktok_studio_session(video: Path, caption: str, session_id: str) -> dict:
-    """
-    Uses Playwright in headless mode with the user's TikTok `sessionid` cookie
-    to upload and publish the video directly as Public (Everyone) via TikTok Studio Web.
-    """
     from playwright.sync_api import sync_playwright
 
-    log.info("Publishing to TikTok Studio (Public) via TIKTOK_SESSION_ID...")
+    idc, cookie_map = _discover_tiktok_idc(session_id)
+    log.info("Publishing to TikTok Studio (Public) with idc=%s...", idc)
+
     with sync_playwright() as p:
         browser = p.chromium.launch(
             headless=True,
@@ -48,38 +115,30 @@ def publish_tiktok_studio_session(video: Path, caption: str, session_id: str) ->
             ),
             locale="en-US",
         )
-        cookies = []
-        for name in ("sessionid", "sessionid_ss", "sid_tt"):
+        pw_cookies = []
+        for k, v in cookie_map.items():
             for domain in (".tiktok.com", "www.tiktok.com"):
-                cookies.append(
+                pw_cookies.append(
                     {
-                        "name": name,
-                        "value": session_id,
+                        "name": k,
+                        "value": v,
                         "domain": domain,
                         "path": "/",
-                        "httpOnly": True,
                         "secure": True,
                         "sameSite": "None",
                     }
                 )
-        context.add_cookies(cookies)
+        context.add_cookies(pw_cookies)
 
         page = context.new_page()
         page.goto("https://www.tiktok.com/tiktokstudio/upload?lang=en", wait_until="domcontentloaded", timeout=60000)
         time.sleep(10)
 
         log.info("TikTok Studio landed on URL: %s | Title: %s", page.url, page.title())
-        try:
-            body_preview = " ".join((page.locator("body").inner_text(timeout=5000) or "").split())[:300]
-            log.info("TikTok Studio body preview: %s", body_preview)
-        except Exception as e:
-            log.warning("Could not read body text: %s", e)
-
         if "/login" in page.url or "login" in page.title().lower():
             browser.close()
             raise TikTokError(f"TIKTOK_SESSION_ID redirected to login ({page.url})")
 
-        # Search all frames for input[type='file']
         target_frame = None
         for _ in range(10):
             for frame in page.frames:
@@ -97,7 +156,7 @@ def publish_tiktok_studio_session(video: Path, caption: str, session_id: str) ->
             log.info("Found input[type='file'] in frame: %s", target_frame.url)
             target_frame.locator("input[type='file']").first.set_input_files(str(video))
         else:
-            log.info("No direct input[type='file'] found; trying file chooser click...")
+            log.info("Trying file chooser click...")
             with page.expect_file_chooser(timeout=20000) as fc_info:
                 btn = page.locator("button:has-text('Select'), [data-e2e*='select'], [class*='upload']").first
                 btn.click(force=True)
