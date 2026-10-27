@@ -21,12 +21,12 @@
       }
     },
     "2026-10-27": {
-      "published_at": "2026-10-27T10:04:05.052205+04:00",
+      "published_at": "2026-10-27T10:07:42.380347+04:00",
       "results": {
         "tiktok": {
-          "id": "v_inbox_file~v2.7701224176035629062",
-          "mode": "inbox_draft",
-          "permalink": "https://www.tiktok.com/@yuk.az (Inbox draft)"
+          "id": "studio_direct_post",
+          "mode": "public_direct_post",
+          "permalink": "https://www.tiktok.com/@yuk.az"
         }
       }
     }
