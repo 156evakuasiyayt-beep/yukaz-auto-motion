@@ -122,7 +122,7 @@ def publish_tiktok_studio_session(video: Path, caption: str, session_id: str) ->
             ],
         )
         context = browser.new_context(
-            viewport={"width": 1440, "height": 900},
+            viewport={"width": 1440, "height": 960},
             user_agent=(
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                 "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -146,6 +146,21 @@ def publish_tiktok_studio_session(video: Path, caption: str, session_id: str) ->
         context.add_cookies(pw_cookies)
 
         page = context.new_page()
+        post_api_results = []
+
+        def on_response(resp):
+            u = resp.url
+            if any(k in u for k in ("/project/post", "/item/create", "/project/create")):
+                try:
+                    body = resp.text()[:500]
+                except Exception:
+                    body = "<unreadable>"
+                log.info("TikTok API response [%s] %s -> %s", resp.status, u[:120], body)
+                if "/project/post" in u or "/item/create" in u:
+                    post_api_results.append((resp.status, body))
+
+        page.on("response", on_response)
+
         page.goto("https://www.tiktok.com/tiktokstudio/upload?lang=en", wait_until="domcontentloaded", timeout=60000)
         time.sleep(10)
 
@@ -198,46 +213,97 @@ def publish_tiktok_studio_session(video: Path, caption: str, session_id: str) ->
             page.keyboard.press("Escape")
             log.info("TikTok Studio: caption inserted (%d chars)", len(clean_caption))
 
-        # Wait up to 120s for video upload to reach 100% and Post button to become enabled
-        post_btn = work_ctx.locator(
-            "[data-e2e='post_video_button'], button:has-text('Post'), button:has-text('Paylaş')"
-        ).first
-        for i in range(40):
+        # Wait specifically for [data-e2e='post_video_button'] to become enabled AND video upload to complete
+        post_btn = work_ctx.locator("[data-e2e='post_video_button']").first
+        if post_btn.count() == 0:
+            # Fallback to exact text match "Post" (not "Posts" in sidebar!)
+            post_btn = work_ctx.get_by_role("button", name="Post", exact=True).first
+
+        for i in range(45):
             _dismiss_tiktok_modals(page)
             try:
-                disabled = post_btn.get_attribute("disabled") or post_btn.get_attribute("aria-disabled")
-                if disabled not in ("true", "disabled", ""):
-                    log.info("TikTok Studio: Post button is enabled (check %d)", i + 1)
+                cls = post_btn.get_attribute("class") or ""
+                disabled = post_btn.get_attribute("disabled")
+                aria_dis = post_btn.get_attribute("aria-disabled")
+                data_dis = post_btn.get_attribute("data-disabled")
+                is_ready = (
+                    disabled is None
+                    and aria_dis != "true"
+                    and data_dis != "true"
+                    and "disabled" not in cls.lower()
+                )
+                if i % 3 == 0 or is_ready:
+                    log.info(
+                        "Upload wait (%d/45): btn_ready=%s class='%s' disabled=%s aria=%s",
+                        i + 1,
+                        is_ready,
+                        cls[:80],
+                        disabled,
+                        aria_dis,
+                    )
+                if is_ready and i >= 3:
                     break
-            except Exception:
-                pass
+            except Exception as e:
+                log.warning("Post button check error: %s", e)
             time.sleep(3)
 
-        time.sleep(4)
+        time.sleep(3)
         _dismiss_tiktok_modals(page)
         post_btn.scroll_into_view_if_needed()
+        time.sleep(1)
+
+        # Click using both native click and JS click if needed
+        box = post_btn.bounding_box()
+        log.info("Clicking [data-e2e='post_video_button'] at box=%s, text='%s'", box, post_btn.inner_text())
         post_btn.click(force=True)
-        log.info("TikTok Studio: clicked Post button, checking for confirmation dialogs...")
 
-        for _ in range(6):
+        # Wait up to 35s for post API response or redirect to /tiktokstudio/content
+        for step in range(12):
             time.sleep(3)
-            try:
-                confirm_btn = page.locator(
-                    "button:has-text('Post now'), button:has-text('Continue to post'), [data-e2e='post_confirm_button']"
-                ).first
-                if confirm_btn.count() > 0 and confirm_btn.is_visible():
-                    log.info("TikTok Studio: clicking secondary confirmation button...")
-                    confirm_btn.click(force=True)
-            except Exception:
-                pass
+            _dismiss_tiktok_modals(page)
+            # Check for any confirmation modal button ("Post now", "Continue to post", "Continue")
+            for label in ("Post now", "Continue to post", "Continue", "Confirm"):
+                cbtn = page.get_by_role("button", name=label, exact=True).first
+                if cbtn.count() > 0 and cbtn.is_visible():
+                    log.info("Clicking secondary confirmation dialog button: %s", label)
+                    cbtn.click(force=True)
+            if post_api_results or "/content" in page.url:
+                log.info("TikTok post confirmed! URL=%s, api_results=%s", page.url, post_api_results)
+                break
+            if step == 4 and not post_api_results:
+                log.info("Retrying JS click on [data-e2e='post_video_button']...")
+                try:
+                    post_btn.evaluate("el => el.click()")
+                except Exception:
+                    pass
 
-        log.info("TikTok Studio final URL: %s", page.url)
+        log.info("TikTok Studio final URL: %s | post_api_results count: %d", page.url, len(post_api_results))
+        try:
+            body_end = " ".join((page.locator("body").inner_text(timeout=5000) or "").split())[:400]
+            log.info("TikTok Studio end body: %s", body_end)
+        except Exception:
+            pass
+
         browser.close()
-        return {
-            "id": "studio_direct_post",
-            "mode": "public_direct_post",
-            "permalink": "https://www.tiktok.com/@yuk.az",
-        }
+
+        if post_api_results:
+            status_code, body_txt = post_api_results[-1]
+            if status_code == 200 and ('"status_code":0' in body_txt.replace(" ", "") or '"item_id"' in body_txt):
+                return {
+                    "id": "studio_direct_post",
+                    "mode": "public_direct_post",
+                    "permalink": "https://www.tiktok.com/@yuk.az",
+                }
+            raise TikTokError(f"TikTok Studio post API returned error: {body_txt}")
+
+        if "/content" in page.url:
+            return {
+                "id": "studio_direct_post",
+                "mode": "public_direct_post",
+                "permalink": "https://www.tiktok.com/@yuk.az",
+            }
+
+        raise TikTokError(f"TikTok Studio Post button clicked but post API did not fire (final URL: {page.url})")
 
 
 def get_valid_access_token() -> str:
@@ -288,10 +354,7 @@ def _upload_chunks(upload_url: str, video: Path):
 def publish_tiktok(video: Path, caption: str, cover_timestamp_ms: int = 1000) -> dict:
     session_id = os.environ.get("TIKTOK_SESSION_ID", "").strip()
     if session_id:
-        try:
-            return publish_tiktok_studio_session(video, caption, session_id)
-        except Exception as e:
-            log.warning("TikTok Studio session upload failed (%s), falling back to API", e)
+        return publish_tiktok_studio_session(video, caption, session_id)
 
     tok = get_valid_access_token()
     size = video.stat().st_size
