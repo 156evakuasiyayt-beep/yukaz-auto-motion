@@ -86,7 +86,7 @@ jobs:
             --approval none $WAIT
 
       - name: Record published Google Drive date in repository
-        if: steps.fetch.outputs.skip != 'true'
+        if: always() && steps.fetch.outputs.skip != 'true'
         run: |
           git config user.name "156evakuasiyayt-beep"
           git config user.email "156evakuasiyayt@gmail.com"

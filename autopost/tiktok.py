@@ -289,10 +289,20 @@ def publish_tiktok_studio_session(video: Path, caption: str, session_id: str) ->
         if post_api_results:
             status_code, body_txt = post_api_results[-1]
             if status_code == 200 and ('"status_code":0' in body_txt.replace(" ", "") or '"item_id"' in body_txt):
+                item_id = "studio_direct_post"
+                permalink = "https://www.tiktok.com/@yuk.az"
+                try:
+                    resp_json = json.loads(body_txt)
+                    resp_list = resp_json.get("single_post_resp_list") or []
+                    if resp_list and resp_list[0].get("item_id"):
+                        item_id = str(resp_list[0]["item_id"])
+                        permalink = f"https://www.tiktok.com/@yuk.az/video/{item_id}"
+                except Exception:
+                    pass
                 return {
-                    "id": "studio_direct_post",
+                    "id": item_id,
                     "mode": "public_direct_post",
-                    "permalink": "https://www.tiktok.com/@yuk.az",
+                    "permalink": permalink,
                 }
             raise TikTokError(f"TikTok Studio post API returned error: {body_txt}")
 
@@ -354,7 +364,10 @@ def _upload_chunks(upload_url: str, video: Path):
 def publish_tiktok(video: Path, caption: str, cover_timestamp_ms: int = 1000) -> dict:
     session_id = os.environ.get("TIKTOK_SESSION_ID", "").strip()
     if session_id:
-        return publish_tiktok_studio_session(video, caption, session_id)
+        try:
+            return publish_tiktok_studio_session(video, caption, session_id)
+        except Exception as e:
+            log.warning("TikTok Studio session upload failed (%s), falling back to OAuth2 API...", e)
 
     tok = get_valid_access_token()
     size = video.stat().st_size

@@ -50,9 +50,10 @@ def mark_date_published(date_key: str, results: dict):
             history = json.loads(TRACKER_PATH.read_text(encoding="utf-8")).get("history", {})
         except Exception:
             history = {}
+    prev_results = (history.get(date_key) or {}).get("results") or {}
     history[date_key] = {
         "published_at": dt.datetime.now(BAKU).isoformat(),
-        "results": results,
+        "results": {**prev_results, **results},
     }
     TRACKER_PATH.write_text(
         json.dumps({"published_dates": published, "history": history}, ensure_ascii=False, indent=2) + "\n",

@@ -1,7 +1,8 @@
 {
   "published_dates": [
     "2026-10-26",
-    "2026-10-27"
+    "2026-10-27",
+    "2026-10-28"
   ],
   "history": {
     "2026-10-26": {
@@ -23,10 +24,31 @@
     "2026-10-27": {
       "published_at": "2026-10-27T10:13:00.027521+04:00",
       "results": {
+        "instagram": {
+          "id": "18357231307172934",
+          "permalink": "https://www.instagram.com/reel/De_F0P5CnJ6/"
+        },
+        "facebook": {
+          "id": "1166708892391394",
+          "permalink": "https://www.facebook.com/reel/1166708892391394"
+        },
         "tiktok": {
-          "id": "studio_direct_post",
+          "id": "7701226680282516743",
           "mode": "public_direct_post",
-          "permalink": "https://www.tiktok.com/@yuk.az"
+          "permalink": "https://www.tiktok.com/@yuk.az/video/7701226680282516743"
+        }
+      }
+    },
+    "2026-10-28": {
+      "published_at": "2026-10-28T10:30:24.108166+04:00",
+      "results": {
+        "instagram": {
+          "id": "18042138332838285",
+          "permalink": "https://www.instagram.com/reel/DfBynOLitz7/"
+        },
+        "facebook": {
+          "id": "2706557126466225",
+          "permalink": "https://www.facebook.com/reel/2706557126466225"
         }
       }
     }
