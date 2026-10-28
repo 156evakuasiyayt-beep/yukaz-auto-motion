@@ -40,7 +40,7 @@
       }
     },
     "2026-10-28": {
-      "published_at": "2026-10-28T10:30:24.108166+04:00",
+      "published_at": "2026-10-28T10:34:26.840366+04:00",
       "results": {
         "instagram": {
           "id": "18042138332838285",
@@ -49,6 +49,11 @@
         "facebook": {
           "id": "2706557126466225",
           "permalink": "https://www.facebook.com/reel/2706557126466225"
+        },
+        "tiktok": {
+          "id": "v_inbox_file~v2.7701602693470750740",
+          "mode": "inbox_draft",
+          "permalink": "https://www.tiktok.com/@yuk.az (Inbox draft)"
         }
       }
     }
