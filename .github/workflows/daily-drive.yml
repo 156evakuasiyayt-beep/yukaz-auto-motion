@@ -2,7 +2,9 @@ name: Daily Google Drive Post (09:00 Baku)
 
 on:
   schedule:
-    - cron: "45 4 * * *" # Bakı vaxtı ilə 08:45-də oyanır, faylları endirir və dəqiq 09:00-da paylaşır
+    - cron: "35 4 * * *" # 08:35 Bakı vaxtı (əsas oyanma, 09:00-da paylaşır)
+    - cron: "52 4 * * *" # 08:52 Bakı vaxtı (GitHub cron gecikməsinə qarşı ehtiyat #1)
+    - cron: "10 5 * * *" # 09:10 Bakı vaxtı (GitHub cron gecikməsinə qarşı ehtiyat #2)
   workflow_dispatch:
     inputs:
       date:
@@ -33,18 +35,19 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT || github.token }}
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
 
-      - name: Install Python dependencies & Chromium for TikTok Studio
-        run: |
-          pip install -r requirements.txt
-          playwright install chromium
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
 
       - name: Fetch ready package from Google Drive (Yük.az Reels)
+        id: fetch
         env:
           GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID || '1LDJqdkgqU2_a08vSYHdkFd7nJZlTqcQa' }}
         run: |
@@ -52,8 +55,18 @@ jobs:
           if [ -n "${{ inputs.date }}" ]; then ARGS="$ARGS --date ${{ inputs.date }}"; fi
           if [ "${{ inputs.force }}" = "true" ]; then ARGS="$ARGS --force"; fi
           python -m autopost.drive $ARGS
+          if [ -f "out/already_published.txt" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Chromium for TikTok Studio
+        if: steps.fetch.outputs.skip != 'true'
+        run: playwright install chromium
 
       - name: Publish to Instagram, Facebook & TikTok at 09:00 Baku
+        if: steps.fetch.outputs.skip != 'true'
         env:
           META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
           FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
@@ -73,8 +86,9 @@ jobs:
             --approval none $WAIT
 
       - name: Record published Google Drive date in repository
+        if: steps.fetch.outputs.skip != 'true'
         run: |
-          git config user.name "YukAz Automation Bot"
-          git config user.email "bot@yuk.az"
+          git config user.name "156evakuasiyayt-beep"
+          git config user.email "156evakuasiyayt@gmail.com"
           git add content/published_drive.json || true
-          git diff --cached --quiet || (git commit -m "chore(drive): record published reel [skip ci]" && git push)
+          git diff --cached --quiet || (git commit -m "chore(drive): record published reel" && git push)

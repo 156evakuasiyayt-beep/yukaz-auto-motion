@@ -88,6 +88,16 @@ def fetch_drive_package(out_dir: Path, target_date: str | None = None, force: bo
     published = set() if force else load_published_dates()
     today_str = dt.datetime.now(BAKU).strftime("%Y-%m-%d")
 
+    out_dir.mkdir(parents=True, exist_ok=True)
+    skip_marker = out_dir / "already_published.txt"
+    if skip_marker.exists():
+        skip_marker.unlink()
+
+    if not target_date and not force and today_str in published:
+        log.info("Today's package (%s) is already in published_dates — skipping duplicate run.", today_str)
+        skip_marker.write_text(today_str, encoding="utf-8")
+        return today_str
+
     selected_key = None
     if target_date:
         if target_date not in packages or "video" not in packages[target_date]:
@@ -97,9 +107,14 @@ def fetch_drive_package(out_dir: Path, target_date: str | None = None, force: bo
         selected_key = today_str
     else:
         for key in sorted(packages.keys()):
-            if key not in published and "video" in packages[key]:
+            if key not in published and "video" in packages[key] and key <= today_str:
                 selected_key = key
                 break
+        if not selected_key:
+            for key in sorted(packages.keys()):
+                if key not in published and "video" in packages[key]:
+                    selected_key = key
+                    break
 
     if not selected_key:
         raise RuntimeError(f"All available Google Drive packages ({sorted(packages.keys())}) have already been published.")
