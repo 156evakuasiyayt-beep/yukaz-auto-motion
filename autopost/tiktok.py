@@ -7,6 +7,7 @@ Env:
   TIKTOK_CLIENT_SECRET  TikTok App Client Secret
   TIKTOK_REFRESH_TOKEN  OAuth2 refresh token (valid for 365 days)
 """
+import base64
 import json
 import logging
 import os
@@ -93,7 +94,7 @@ def _dismiss_tiktok_modals(page):
             btn = page.locator(f"[data-floating-ui-portal] button:has-text('{label}')").first
             if btn.count() > 0 and btn.is_visible():
                 btn.click(force=True)
-                time.sleep(0.5)
+                time.sleep(0.3)
     except Exception:
         pass
     try:
@@ -106,21 +107,134 @@ def _dismiss_tiktok_modals(page):
         pass
 
 
-def publish_tiktok_studio_session(video: Path, caption: str, session_id: str) -> dict:
+def _set_custom_cover_ui(page, work_ctx, cover: Path):
+    """Attempts to upload cover.jpg via TikTok Studio's 'Edit cover' -> 'Upload cover' modal if available."""
+    try:
+        # Look for 'Edit cover' button or text
+        edit_cover_btn = work_ctx.locator("text='Edit cover', [class*='edit-cover'], [data-e2e*='cover']").first
+        if edit_cover_btn.count() == 0:
+            log.info("No 'Edit cover' button found in DOM (canvas cover interceptor is active)")
+            return
+        log.info("Opening 'Edit cover' dialog...")
+        edit_cover_btn.click(force=True)
+        time.sleep(2)
+
+        upload_tab = page.locator("text='Upload cover'").first
+        if upload_tab.count() > 0 and upload_tab.is_visible():
+            log.info("Clicking 'Upload cover' tab...")
+            upload_tab.click(force=True)
+            time.sleep(1.5)
+
+        img_inputs = page.locator("input[type='file'][accept*='image'], input[type='file'][accept*='png'], input[type='file'][accept*='jpg'], input[type='file'][accept*='jpeg']")
+        if img_inputs.count() > 0:
+            log.info("Setting cover image file on image input[type='file']: %s", cover)
+            img_inputs.first.set_input_files(str(cover))
+            time.sleep(3)
+            confirm_btn = page.get_by_role("button", name="Confirm", exact=True).first
+            if confirm_btn.count() > 0 and confirm_btn.is_visible():
+                log.info("Clicking 'Confirm' on cover dialog...")
+                confirm_btn.click(force=True)
+                time.sleep(2)
+                return
+        # Close modal if Confirm wasn't found
+        cancel_btn = page.get_by_role("button", name="Cancel", exact=True).first
+        if cancel_btn.count() > 0 and cancel_btn.is_visible():
+            cancel_btn.click(force=True)
+            time.sleep(1)
+    except Exception as e:
+        log.warning("UI cover upload skipped (canvas cover interceptor still active): %s", e)
+
+
+def _set_caption_reliably(page, work_ctx, caption: str):
+    """Clears default 'reel' filename and inserts full caption into TikTok Studio editor."""
+    if not caption:
+        return
+    clean_caption = caption.replace("\r\n", "\n")[:2200]
+    editor = work_ctx.locator("[contenteditable='true']").first
+    for attempt in range(3):
+        _dismiss_tiktok_modals(page)
+        try:
+            editor.scroll_into_view_if_needed()
+            editor.click(force=True)
+            time.sleep(0.5)
+            # Select all via JS Selection API + execCommand + keyboard
+            editor.evaluate(
+                """(el) => {
+                    el.focus();
+                    const sel = window.getSelection();
+                    const range = document.createRange();
+                    range.selectNodeContents(el);
+                    sel.removeAllRanges();
+                    sel.addRange(range);
+                    document.execCommand('selectAll', false, null);
+                    document.execCommand('delete', false, null);
+                }"""
+            )
+            time.sleep(0.3)
+            page.keyboard.press("Control+A")
+            page.keyboard.press("Backspace")
+            for _ in range(15):
+                page.keyboard.press("Backspace")
+                page.keyboard.press("Delete")
+            time.sleep(0.3)
+            page.keyboard.insert_text(clean_caption)
+            time.sleep(1.5)
+            page.keyboard.press("Escape")
+            current_txt = (editor.inner_text() or "").strip()
+            log.info("Caption check (attempt %d): len=%d, preview='%s'", attempt + 1, len(current_txt), current_txt[:80])
+            if len(current_txt) >= 15 and current_txt.lower() != "reel":
+                return
+        except Exception as e:
+            log.warning("Caption attempt %d error: %s", attempt + 1, e)
+        time.sleep(1)
+
+
+def _ensure_everyone_privacy(page, work_ctx):
+    """Ensures 'Who can watch this video' is set to 'Everyone' (Public) and not 'Only me'."""
+    try:
+        _dismiss_tiktok_modals(page)
+        # Look for combobox or button near 'Who can watch this video' that currently says 'Only me' or 'Friends'
+        for bad_priv in ("Only me", "Friends"):
+            priv_trigger = work_ctx.locator(f"[role='combobox']:has-text('{bad_priv}'), button:has-text('{bad_priv}'), [class*='select']:has-text('{bad_priv}')").first
+            if priv_trigger.count() > 0 and priv_trigger.is_visible():
+                log.info("Privacy dropdown currently shows '%s' — switching to 'Everyone'...", bad_priv)
+                priv_trigger.scroll_into_view_if_needed()
+                priv_trigger.click(force=True)
+                time.sleep(1)
+                everyone_opt = page.locator("[role='option']:has-text('Everyone'), li:has-text('Everyone'), div[class*='option']:has-text('Everyone')").first
+                if everyone_opt.count() > 0 and everyone_opt.is_visible():
+                    everyone_opt.click(force=True)
+                    log.info("Selected 'Everyone' privacy option!")
+                    time.sleep(1)
+                    return
+                # Fallback text click
+                page.get_by_text("Everyone", exact=True).last.click(force=True)
+                time.sleep(1)
+    except Exception as e:
+        log.warning("Privacy check warning: %s", e)
+
+
+def publish_tiktok_studio_session(video: Path, caption: str, session_id: str, cover: Path | None = None) -> dict:
     from playwright.sync_api import sync_playwright
 
     idc, cookie_map = _discover_tiktok_idc(session_id)
-    log.info("Publishing to TikTok Studio (Public) with idc=%s...", idc)
+    log.info("Publishing to TikTok Studio (Public) with idc=%s, cover=%s...", idc, cover)
+
+    launch_args = [
+        "--no-sandbox",
+        "--disable-blink-features=AutomationControlled",
+        "--disable-dev-shm-usage",
+        "--autoplay-policy=no-user-gesture-required",
+    ]
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=True,
-            args=[
-                "--no-sandbox",
-                "--disable-blink-features=AutomationControlled",
-                "--disable-dev-shm-usage",
-            ],
-        )
+        try:
+            browser = p.chromium.launch(channel="chrome", headless=True, args=launch_args)
+            log.info("Launched full Google Chrome (with native H.264/MP4 support)")
+        except Exception as e:
+            log.warning("Chrome channel launch fallback to Chromium: %s", e)
+            browser = p.chromium.launch(headless=True, args=launch_args)
+
         context = browser.new_context(
             viewport={"width": 1440, "height": 960},
             user_agent=(
@@ -130,6 +244,48 @@ def publish_tiktok_studio_session(video: Path, caption: str, session_id: str) ->
             ),
             locale="en-US",
         )
+
+        # Inject cover.jpg into HTMLCanvasElement.prototype.toBlob & toDataURL so TikTok Studio NEVER generates a black cover!
+        if cover and cover.exists():
+            b64_cover = base64.b64encode(cover.read_bytes()).decode("ascii")
+            context.add_init_script(
+                f"""(() => {{
+                    const coverDataUrl = "data:image/jpeg;base64,{b64_cover}";
+                    const coverImg = new Image();
+                    coverImg.crossOrigin = "anonymous";
+                    coverImg.src = coverDataUrl;
+                    window.__customCoverImg = coverImg;
+
+                    const origToBlob = HTMLCanvasElement.prototype.toBlob;
+                    HTMLCanvasElement.prototype.toBlob = function(cb, type, quality) {{
+                        try {{
+                            if (window.__customCoverImg && window.__customCoverImg.complete && window.__customCoverImg.naturalWidth > 0 && this.width >= 100 && this.height >= 100) {{
+                                const ctx = this.getContext('2d');
+                                if (ctx) {{
+                                    ctx.drawImage(window.__customCoverImg, 0, 0, this.width, this.height);
+                                    console.log('[YukAz] Injected custom cover.jpg into canvas.toBlob (' + this.width + 'x' + this.height + ')');
+                                }}
+                            }}
+                        }} catch (err) {{}}
+                        return origToBlob.call(this, cb, type, quality);
+                    }};
+
+                    const origToDataURL = HTMLCanvasElement.prototype.toDataURL;
+                    HTMLCanvasElement.prototype.toDataURL = function(type, quality) {{
+                        try {{
+                            if (window.__customCoverImg && window.__customCoverImg.complete && window.__customCoverImg.naturalWidth > 0 && this.width >= 100 && this.height >= 100) {{
+                                const ctx = this.getContext('2d');
+                                if (ctx) {{
+                                    ctx.drawImage(window.__customCoverImg, 0, 0, this.width, this.height);
+                                }}
+                            }}
+                        }} catch (err) {{}}
+                        return origToDataURL.call(this, type, quality);
+                    }};
+                }})();"""
+            )
+            log.info("Injected custom cover.jpg (%d bytes) into browser canvas pipeline", cover.stat().st_size)
+
         pw_cookies = []
         for k, v in cookie_map.items():
             for domain in (".tiktok.com", "www.tiktok.com"):
@@ -194,29 +350,15 @@ def publish_tiktok_studio_session(video: Path, caption: str, session_id: str) ->
                 btn.click(force=True)
             fc_info.value.set_files(str(video))
 
-        log.info("TikTok Studio: video file attached, waiting for editor...")
+        log.info("TikTok Studio: video file attached, waiting for editor and upload completion...")
         work_ctx = target_frame or page
         editor = work_ctx.locator("[contenteditable='true']").first
         editor.wait_for(state="visible", timeout=90000)
-        time.sleep(5)
-
-        _dismiss_tiktok_modals(page)
-
-        if caption:
-            editor.click(force=True)
-            time.sleep(0.5)
-            page.keyboard.press("Control+A")
-            page.keyboard.press("Backspace")
-            clean_caption = caption.replace("\r\n", "\n")
-            page.keyboard.insert_text(clean_caption[:2200])
-            time.sleep(2)
-            page.keyboard.press("Escape")
-            log.info("TikTok Studio: caption inserted (%d chars)", len(clean_caption))
+        time.sleep(6)
 
         # Wait specifically for [data-e2e='post_video_button'] to become enabled AND video upload to complete
         post_btn = work_ctx.locator("[data-e2e='post_video_button']").first
         if post_btn.count() == 0:
-            # Fallback to exact text match "Post" (not "Posts" in sidebar!)
             post_btn = work_ctx.get_by_role("button", name="Post", exact=True).first
 
         for i in range(45):
@@ -241,18 +383,24 @@ def publish_tiktok_studio_session(video: Path, caption: str, session_id: str) ->
                         disabled,
                         aria_dis,
                     )
-                if is_ready and i >= 3:
+                if is_ready and i >= 4:
                     break
             except Exception as e:
                 log.warning("Post button check error: %s", e)
             time.sleep(3)
 
-        time.sleep(3)
+        # Now that video upload is 100% complete, set cover, caption, and privacy!
+        if cover and cover.exists():
+            _set_custom_cover_ui(page, work_ctx, cover)
+
+        _set_caption_reliably(page, work_ctx, caption)
+        _ensure_everyone_privacy(page, work_ctx)
+
+        time.sleep(2)
         _dismiss_tiktok_modals(page)
         post_btn.scroll_into_view_if_needed()
         time.sleep(1)
 
-        # Click using both native click and JS click if needed
         box = post_btn.bounding_box()
         log.info("Clicking [data-e2e='post_video_button'] at box=%s, text='%s'", box, post_btn.inner_text())
         post_btn.click(force=True)
@@ -261,7 +409,6 @@ def publish_tiktok_studio_session(video: Path, caption: str, session_id: str) ->
         for step in range(12):
             time.sleep(3)
             _dismiss_tiktok_modals(page)
-            # Check for any confirmation modal button ("Post now", "Continue to post", "Continue")
             for label in ("Post now", "Continue to post", "Continue", "Confirm"):
                 cbtn = page.get_by_role("button", name=label, exact=True).first
                 if cbtn.count() > 0 and cbtn.is_visible():
@@ -361,11 +508,11 @@ def _upload_chunks(upload_url: str, video: Path):
         raise TikTokError(f"TikTok binary upload failed ({r.status_code}): {r.text[:500]}")
 
 
-def publish_tiktok(video: Path, caption: str, cover_timestamp_ms: int = 1000) -> dict:
+def publish_tiktok(video: Path, caption: str, cover: Path | None = None, cover_timestamp_ms: int = 1000) -> dict:
     session_id = os.environ.get("TIKTOK_SESSION_ID", "").strip()
     if session_id:
         try:
-            return publish_tiktok_studio_session(video, caption, session_id)
+            return publish_tiktok_studio_session(video, caption, session_id, cover=cover)
         except Exception as e:
             log.warning("TikTok Studio session upload failed (%s), falling back to OAuth2 API...", e)
 

@@ -92,7 +92,7 @@ def main():
                     log.warning("TikTok credentials not set yet — skipping TikTok")
                     results[p] = {"skipped": "TikTok token not set"}
                     continue
-                results[p] = tiktok.publish_tiktok(video, caption)
+                results[p] = tiktok.publish_tiktok(video, caption, cover=cover)
             else:
                 raise ValueError(f"unknown platform {p}")
             log.info("%s ✓ %s", p, results[p])

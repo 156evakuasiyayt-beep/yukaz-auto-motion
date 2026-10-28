@@ -61,9 +61,9 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Install Chromium for TikTok Studio
+      - name: Install Chrome & Chromium for TikTok Studio
         if: steps.fetch.outputs.skip != 'true'
-        run: playwright install chromium
+        run: playwright install chrome chromium
 
       - name: Publish to Instagram, Facebook & TikTok at 09:00 Baku
         if: steps.fetch.outputs.skip != 'true'
