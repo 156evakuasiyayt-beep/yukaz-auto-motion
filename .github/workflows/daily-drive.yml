@@ -1,10 +1,10 @@
-name: Daily Google Drive Post (09:00 Baku)
+name: Daily Google Drive Post (10:30 Baku)
 
 on:
   schedule:
-    - cron: "35 4 * * *" # 08:35 Bakı vaxtı (əsas oyanma, 09:00-da paylaşır)
-    - cron: "52 4 * * *" # 08:52 Bakı vaxtı (GitHub cron gecikməsinə qarşı ehtiyat #1)
-    - cron: "10 5 * * *" # 09:10 Bakı vaxtı (GitHub cron gecikməsinə qarşı ehtiyat #2)
+    - cron: "10 6 * * *" # 10:10 Bakı vaxtı (əsas oyanma, 10:30-da paylaşır)
+    - cron: "20 6 * * *" # 10:20 Bakı vaxtı (GitHub cron gecikməsinə qarşı ehtiyat #1)
+    - cron: "35 6 * * *" # 10:35 Bakı vaxtı (GitHub cron gecikməsinə qarşı ehtiyat #2)
   workflow_dispatch:
     inputs:
       date:
@@ -18,7 +18,7 @@ on:
         type: boolean
         default: false
       publish_now:
-        description: "09:00-ı gözləmədən dərhal paylaş"
+        description: "10:30-u gözləmədən dərhal paylaş"
         type: boolean
         default: true
 
@@ -26,7 +26,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: daily-drive-post
+  group: daily-drive-post-1030-v2
   cancel-in-progress: false
 
 jobs:
@@ -65,7 +65,7 @@ jobs:
         if: steps.fetch.outputs.skip != 'true'
         run: playwright install chrome chromium
 
-      - name: Publish to Instagram, Facebook & TikTok at 09:00 Baku
+      - name: Publish to Instagram, Facebook & TikTok at 10:30 Baku
         if: steps.fetch.outputs.skip != 'true'
         env:
           META_ACCESS_TOKEN: ${{ secrets.META_ACCESS_TOKEN }}
@@ -79,7 +79,7 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_IDS: ${{ secrets.TELEGRAM_CHAT_IDS }}
         run: |
-          WAIT="--wait-until 09:00"
+          WAIT="--wait-until 10:30"
           if [ "${{ inputs.publish_now }}" = "true" ]; then WAIT=""; fi
           python -m autopost.publish --out out \
             --platforms "${{ inputs.platforms || 'instagram,facebook,tiktok' }}" \
