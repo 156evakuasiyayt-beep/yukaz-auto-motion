@@ -3,6 +3,7 @@
     "2026-10-26",
     "2026-10-27",
     "2026-10-28",
+    "2026-10-29",
     "2026-10-30",
     "2026-10-31"
   ],
@@ -90,6 +91,23 @@
         },
         "tiktok": {
           "id": "v_inbox_file~v2.7702811843454191637",
+          "mode": "inbox_draft",
+          "permalink": "https://www.tiktok.com/@yuk.az (Inbox draft)"
+        }
+      }
+    },
+    "2026-10-29": {
+      "published_at": "2026-11-01T17:15:42.434867+04:00",
+      "results": {
+        "instagram": {
+          "error": "binary upload failed (500): {'debug_info': {'retriable': False, 'type': 'ProcessingFailedError', 'message': '{\"success\":false,\"error\":{\"message\":\"{\\\\\"message\\\\\":\\\\\"Video Transcoding Error: Broken container.\\\\\"}\"}}'}}"
+        },
+        "facebook": {
+          "id": "1036405036153117",
+          "permalink": "https://www.facebook.com/reel/1036405036153117"
+        },
+        "tiktok": {
+          "id": "v_inbox_file~v2.7703190930165368840",
           "mode": "inbox_draft",
           "permalink": "https://www.tiktok.com/@yuk.az (Inbox draft)"
         }
