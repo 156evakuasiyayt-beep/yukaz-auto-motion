@@ -5,7 +5,8 @@
     "2026-10-28",
     "2026-10-29",
     "2026-10-30",
-    "2026-10-31"
+    "2026-10-31",
+    "2026-11-02"
   ],
   "history": {
     "2026-10-26": {
@@ -108,6 +109,24 @@
         },
         "tiktok": {
           "id": "v_inbox_file~v2.7703190930165368840",
+          "mode": "inbox_draft",
+          "permalink": "https://www.tiktok.com/@yuk.az (Inbox draft)"
+        }
+      }
+    },
+    "2026-11-02": {
+      "published_at": "2026-11-02T19:42:10.403071+04:00",
+      "results": {
+        "instagram": {
+          "id": "18077117033729813",
+          "permalink": "https://www.instagram.com/reel/DfPprX6igMK/"
+        },
+        "facebook": {
+          "id": "2208180060124967",
+          "permalink": "https://www.facebook.com/reel/2208180060124967"
+        },
+        "tiktok": {
+          "id": "v_inbox_file~v2.7703599601902880789",
           "mode": "inbox_draft",
           "permalink": "https://www.tiktok.com/@yuk.az (Inbox draft)"
         }
