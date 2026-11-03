@@ -131,6 +131,22 @@
           "permalink": "https://www.tiktok.com/@yuk.az (Inbox draft)"
         }
       }
+    },
+    "2026-11-03": {
+      "last_attempt_at": "2026-11-03T14:35:28.014696+04:00",
+      "results": {
+        "instagram": {
+          "id": "18108585236366728",
+          "permalink": "https://www.instagram.com/reel/DfRrcgzl-fB/"
+        },
+        "facebook": {
+          "id": "2067186637315596",
+          "permalink": "https://www.facebook.com/reel/2067186637315596"
+        },
+        "tiktok": {
+          "error": "TikTok public direct post init failed (403, unaudited_client_can_only_post_to_private_accounts): Please review our integration guidelines at https://developers.tiktok.com/doc/content-sharing-guidelines/. TikTok app must pass the Content Posting API audit before public posting is allowed."
+        }
+      }
     }
   }
 }
