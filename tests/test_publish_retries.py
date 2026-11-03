@@ -1,0 +1,80 @@
+import json
+import sys
+import tempfile
+import types
+import unittest
+from datetime import timedelta, timezone
+from pathlib import Path
+from unittest import mock
+
+sys.modules.setdefault("gdown", types.SimpleNamespace())
+sys.modules.setdefault("anthropic", types.SimpleNamespace())
+sys.modules.setdefault("openai", types.SimpleNamespace())
+plan_stub = types.ModuleType("autopost.plan")
+plan_stub.BAKU = timezone(timedelta(hours=4))
+sys.modules.setdefault("autopost.plan", plan_stub)
+
+from autopost import drive, publish, tiktok
+
+
+class PublishRetryTests(unittest.TestCase):
+    def test_inbox_draft_is_not_success(self):
+        self.assertFalse(
+            publish._is_successful_result(
+                {"id": "draft-id", "mode": "inbox_draft", "permalink": "Inbox draft"}
+            )
+        )
+        self.assertTrue(publish._is_successful_result({"id": "video-id", "mode": "public_direct_post"}))
+
+    def test_partial_results_are_recorded_without_completing_date(self):
+        with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as tmp:
+            tracker = Path(tmp) / "published_drive.json"
+            with mock.patch.object(drive, "TRACKER_PATH", tracker):
+                drive.record_publish_results(
+                    "2026-11-03",
+                    {
+                        "instagram": {"id": "ig-1"},
+                        "facebook": {"id": "fb-1"},
+                        "tiktok": {"error": "session expired"},
+                    },
+                    complete=False,
+                )
+                data = json.loads(tracker.read_text(encoding="utf-8"))
+                self.assertNotIn("2026-11-03", data["published_dates"])
+                self.assertEqual("ig-1", drive.load_publish_results("2026-11-03")["instagram"]["id"])
+
+                drive.record_publish_results(
+                    "2026-11-03",
+                    {"tiktok": {"id": "tt-1", "mode": "public_direct_post"}},
+                    complete=True,
+                )
+                data = json.loads(tracker.read_text(encoding="utf-8"))
+                self.assertIn("2026-11-03", data["published_dates"])
+                self.assertEqual("ig-1", data["history"]["2026-11-03"]["results"]["instagram"]["id"])
+
+    def test_tiktok_never_falls_back_to_inbox(self):
+        class Response:
+            status_code = 403
+            content = b"{}"
+
+            @staticmethod
+            def json():
+                return {"error": {"code": "unaudited_client_can_only_post_to_private_accounts"}}
+
+        with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as tmp:
+            video = Path(tmp) / "video.mp4"
+            video.write_bytes(b"video")
+            with (
+                mock.patch.dict(tiktok.os.environ, {"TIKTOK_SESSION_ID": ""}, clear=False),
+                mock.patch.object(tiktok, "get_valid_access_token", return_value="token"),
+                mock.patch.object(tiktok.requests, "post", return_value=Response()) as post,
+            ):
+                with self.assertRaisesRegex(tiktok.TikTokError, "refusing to create an Inbox draft"):
+                    tiktok.publish_tiktok(video, "caption")
+
+            self.assertEqual(1, post.call_count)
+            self.assertNotIn("/inbox/", post.call_args.args[0])
+
+
+if __name__ == "__main__":
+    unittest.main()

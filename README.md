@@ -103,4 +103,4 @@ Tələblər: Python 3.12, Node.js 22+, FFmpeg.
 - GitHub cron bəzən 5–15 dəqiqə gecikə bilər. Ona görə video 08:00-da hazırlanır və paylaşım 09:00-dadır.
 
 ## TikTok (2-ci mərhələ)
-TikTok-un Content Posting API-si ilə videonu birbaşa açıq paylaşmaq üçün TikTok tətbiqinin auditdən keçməsi lazımdır. Audit olana qədər video TikTok-a **qaralama (inbox)** kimi göndəriləcək və tətbiqdə bir toxunuşla paylaşılacaq. Bunun üçün [developers.tiktok.com](https://developers.tiktok.com)-da app yaradıb `video.upload` icazəsini almaq lazımdır.
+TikTok-un Content Posting API-si ilə videonu birbaşa açıq paylaşmaq üçün TikTok tətbiqinin auditdən keçməsi lazımdır. Sessiya etibarsızdırsa və API birbaşa açıq paylaşımı qəbul etmirsə workflow artıq **qaralama (inbox)** yaratmır: TikTok addımı uğursuz sayılır və növbəti cəhddə Instagram/Facebook təkrarlanmadan yalnız TikTok yenidən yoxlanır. Birbaşa paylaşım üçün etibarlı `TIKTOK_SESSION_ID` saxlayın və ya [developers.tiktok.com](https://developers.tiktok.com)-da Content Posting API auditini tamamlayın.

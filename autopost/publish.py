@@ -19,6 +19,17 @@ from .plan import BAKU
 log = logging.getLogger("autopost.publish")
 
 
+def _is_successful_result(result: object) -> bool:
+    if not isinstance(result, dict):
+        return False
+    return (
+        bool(result.get("id"))
+        and "error" not in result
+        and "skipped" not in result
+        and result.get("mode") != "inbox_draft"
+    )
+
+
 def _today_at(hhmm: str) -> dt.datetime:
     h, m = map(int, hhmm.split(":"))
     return dt.datetime.now(BAKU).replace(hour=h, minute=m, second=0, microsecond=0)
@@ -73,6 +84,11 @@ def main():
 
     page_id, ig_id = os.environ.get("FB_PAGE_ID"), os.environ.get("IG_USER_ID")
     results, failed = {}, []
+    previous_results = (
+        drive.load_publish_results(plan["date"])
+        if plan.get("source") == "google_drive"
+        else {}
+    )
 
     cover_url = None
     if "instagram" in platforms and page_id and cover:
@@ -82,6 +98,10 @@ def main():
             log.warning("cover hosting failed, IG will use a video frame: %s", e)
 
     for p in platforms:
+        if _is_successful_result(previous_results.get(p)):
+            results[p] = previous_results[p]
+            log.info("%s already published successfully for %s — skipping duplicate", p, plan["date"])
+            continue
         try:
             if p == "instagram":
                 results[p] = meta.publish_instagram(ig_id, video, caption, cover_url)
@@ -89,8 +109,9 @@ def main():
                 results[p] = meta.publish_facebook(page_id, video, caption, cover)
             elif p == "tiktok":
                 if not any(os.environ.get(k, "").strip() for k in ("TIKTOK_SESSION_ID", "TIKTOK_REFRESH_TOKEN", "TIKTOK_ACCESS_TOKEN")):
-                    log.warning("TikTok credentials not set yet — skipping TikTok")
-                    results[p] = {"skipped": "TikTok token not set"}
+                    log.error("TikTok credentials are not configured")
+                    failed.append(p)
+                    results[p] = {"error": "TikTok credentials are not configured"}
                     continue
                 results[p] = tiktok.publish_tiktok(video, caption, cover=cover)
             else:
@@ -103,9 +124,14 @@ def main():
 
     (out / "publish_result.json").write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    # Mark Google Drive date folder as published if at least one platform succeeded
-    if plan.get("source") == "google_drive" and any("id" in r for r in results.values() if isinstance(r, dict)):
-        drive.mark_date_published(plan["date"], results)
+    if plan.get("source") == "google_drive":
+        complete = all(_is_successful_result(results.get(p)) for p in platforms)
+        drive.record_publish_results(plan["date"], results, complete=complete)
+        if not complete:
+            log.warning(
+                "Google Drive package %s remains incomplete; it will be retried without duplicating successful platforms",
+                plan["date"],
+            )
 
     lines = [f"📣 Yük.az — {plan['date']} paylaşım nəticəsi"]
     for p, r in results.items():

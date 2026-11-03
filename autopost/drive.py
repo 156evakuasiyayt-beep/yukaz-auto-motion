@@ -31,34 +31,56 @@ def _extract_folder_id(raw: str) -> str:
     return m.group(1) if m else raw
 
 
-def load_published_dates() -> set[str]:
+def load_tracker() -> dict:
     if TRACKER_PATH.exists():
         try:
             data = json.loads(TRACKER_PATH.read_text(encoding="utf-8"))
-            return set(data.get("published_dates", []))
+            if isinstance(data, dict):
+                return data
         except Exception:
             pass
-    return set()
+    return {"published_dates": [], "history": {}}
+
+
+def load_published_dates() -> set[str]:
+    return set(load_tracker().get("published_dates", []))
+
+
+def load_publish_results(date_key: str) -> dict:
+    history = load_tracker().get("history", {})
+    return dict((history.get(date_key) or {}).get("results") or {})
+
+
+def record_publish_results(date_key: str, results: dict, *, complete: bool) -> None:
+    """Persist an attempt, marking the date complete only when every requested platform succeeded."""
+    tracker = load_tracker()
+    published = set(tracker.get("published_dates", []))
+    history = dict(tracker.get("history", {}))
+    previous = dict((history.get(date_key) or {}).get("results") or {})
+    now = dt.datetime.now(BAKU).isoformat()
+
+    entry = dict(history.get(date_key) or {})
+    entry["last_attempt_at"] = now
+    entry["results"] = {**previous, **results}
+    if complete:
+        published.add(date_key)
+        entry["published_at"] = now
+    history[date_key] = entry
+
+    TRACKER_PATH.parent.mkdir(parents=True, exist_ok=True)
+    TRACKER_PATH.write_text(
+        json.dumps(
+            {"published_dates": sorted(published), "history": history},
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 def mark_date_published(date_key: str, results: dict):
-    TRACKER_PATH.parent.mkdir(parents=True, exist_ok=True)
-    published = sorted(load_published_dates() | {date_key})
-    history = {}
-    if TRACKER_PATH.exists():
-        try:
-            history = json.loads(TRACKER_PATH.read_text(encoding="utf-8")).get("history", {})
-        except Exception:
-            history = {}
-    prev_results = (history.get(date_key) or {}).get("results") or {}
-    history[date_key] = {
-        "published_at": dt.datetime.now(BAKU).isoformat(),
-        "results": {**prev_results, **results},
-    }
-    TRACKER_PATH.write_text(
-        json.dumps({"published_dates": published, "history": history}, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
+    record_publish_results(date_key, results, complete=True)
 
 
 def fetch_drive_package(out_dir: Path, target_date: str | None = None, force: bool = False) -> str:

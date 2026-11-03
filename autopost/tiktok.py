@@ -1,4 +1,4 @@
-"""Publish a video to TikTok (Public Direct Post via TikTok Studio session cookie, or Content Posting API v2).
+"""Publish a video publicly to TikTok via Studio session cookie or Content Posting API v2.
 
 Env:
   TIKTOK_SESSION_ID     TikTok 'sessionid' cookie from logged-in browser (posts directly as Public via TikTok Studio)
@@ -523,7 +523,8 @@ def publish_tiktok(video: Path, caption: str, cover: Path | None = None, cover_t
         "Content-Type": "application/json; charset=UTF-8",
     }
 
-    for privacy in ("PUBLIC_TO_EVERYONE", "SELF_ONLY"):
+    direct_errors = []
+    for privacy in ("PUBLIC_TO_EVERYONE",):
         direct_payload = {
             "post_info": {
                 "title": (caption or "")[:2200],
@@ -551,23 +552,10 @@ def publish_tiktok(video: Path, caption: str, cover: Path | None = None, cover_t
             return {"id": pub_id, "mode": f"direct_post ({privacy})", "permalink": "https://www.tiktok.com/@yuk.az"}
 
         log.warning("TikTok direct post (%s) returned %s: %s", privacy, r.status_code, data)
+        direct_errors.append(f"{privacy}: HTTP {r.status_code} {data}")
 
-    log.warning("Falling back to TikTok inbox upload")
-    inbox_payload = {
-        "source_info": {
-            "source": "FILE_UPLOAD",
-            "video_size": size,
-            "chunk_size": size,
-            "total_chunk_count": 1,
-        }
-    }
-    r2 = requests.post(f"{TIKTOK_API}/post/publish/inbox/video/init/", headers=headers, json=inbox_payload, timeout=60)
-    data2 = r2.json() if r2.content else {}
-    err_code2 = (data2.get("error") or {}).get("code", "ok")
-    if r2.status_code != 200 or err_code2 != "ok":
-        raise TikTokError(f"TikTok publish failed ({r2.status_code}): {data2}")
-
-    upload_url = data2["data"]["upload_url"]
-    pub_id = data2["data"].get("publish_id")
-    _upload_chunks(upload_url, video)
-    return {"id": pub_id, "mode": "inbox_draft", "permalink": "https://www.tiktok.com/@yuk.az (Inbox draft)"}
+    raise TikTokError(
+        "TikTok public direct post failed; refusing to create an Inbox draft. "
+        "Refresh TIKTOK_SESSION_ID or complete TikTok Content Posting API audit. "
+        + " | ".join(direct_errors)
+    )
