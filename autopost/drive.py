@@ -27,8 +27,8 @@ import gdown
 from .plan import BAKU
 
 log = logging.getLogger("autopost.drive")
-# "Noyabr" — the live folder where the daily source video is delivered.
-DEFAULT_DRIVE_FOLDER_ID = "1q6tuupdqe1J4t7MIJtjJdm52cuCmY7em"
+# Public "Yük.az Reels" root containing the dated daily packages.
+DEFAULT_DRIVE_FOLDER_ID = "1LDJqdkgqU2_a08vSYHdkFd7nJZlTqcQa"
 TRACKER_PATH = Path("content/published_drive.json")
 
 
