@@ -46,10 +46,10 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
-      - name: Fetch ready package from Google Drive (Yük.az Reels)
+      - name: Fetch today's package from Google Drive (Noyabr)
         id: fetch
         env:
-          GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID || '1LDJqdkgqU2_a08vSYHdkFd7nJZlTqcQa' }}
+          GOOGLE_DRIVE_FOLDER_ID: '1q6tuupdqe1J4t7MIJtjJdm52cuCmY7em'
         run: |
           ARGS="--out out"
           if [ -n "${{ inputs.date }}" ]; then ARGS="$ARGS --date ${{ inputs.date }}"; fi

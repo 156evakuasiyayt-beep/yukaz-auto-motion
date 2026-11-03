@@ -18,6 +18,28 @@ from autopost import drive, publish, tiktok
 
 
 class PublishRetryTests(unittest.TestCase):
+    def test_flat_month_folder_is_bound_to_requested_date(self):
+        source = types.SimpleNamespace(path="166 Yükdaşıma - Youtube Gəncə.mp4", id="drive-video")
+
+        def fake_download(*, id, output, quiet):
+            self.assertEqual("drive-video", id)
+            Path(output).write_bytes(b"video")
+
+        with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as tmp:
+            out = Path(tmp) / "out"
+            tracker = Path(tmp) / "published_drive.json"
+            with (
+                mock.patch.object(drive, "TRACKER_PATH", tracker),
+                mock.patch.object(drive.gdown, "download_folder", return_value=[source], create=True),
+                mock.patch.object(drive.gdown, "download", side_effect=fake_download, create=True),
+            ):
+                date_key = drive.fetch_drive_package(out, target_date="2026-11-03")
+
+            self.assertEqual("2026-11-03", date_key)
+            self.assertEqual(b"video", (out / "reel.mp4").read_bytes())
+            plan = json.loads((out / "plan.json").read_text(encoding="utf-8"))
+            self.assertEqual("2026-11-03", plan["date"])
+
     def test_inbox_draft_is_not_success(self):
         self.assertFalse(
             publish._is_successful_result(

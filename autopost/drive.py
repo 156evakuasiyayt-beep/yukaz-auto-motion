@@ -1,6 +1,12 @@
 """Fetch the next ready-to-publish Reel package (video, cover, caption) from Google Drive.
 
-Expected Google Drive folder structure (Yük.az Reels):
+Supported Google Drive folder structures:
+
+Monthly flat folder (current production setup):
+  <GOOGLE_DRIVE_FOLDER_ID>/
+    current_reel.mp4
+
+Date folders (legacy setup):
   <GOOGLE_DRIVE_FOLDER_ID>/
     YYYY-MM-DD/
       yukaz_reel_YYYY-MM-DD.mp4
@@ -21,7 +27,8 @@ import gdown
 from .plan import BAKU
 
 log = logging.getLogger("autopost.drive")
-DEFAULT_DRIVE_FOLDER_ID = "1LDJqdkgqU2_a08vSYHdkFd7nJZlTqcQa"
+# "Noyabr" — the live folder where the daily source video is delivered.
+DEFAULT_DRIVE_FOLDER_ID = "1q6tuupdqe1J4t7MIJtjJdm52cuCmY7em"
 TRACKER_PATH = Path("content/published_drive.json")
 
 
@@ -122,21 +129,40 @@ def fetch_drive_package(out_dir: Path, target_date: str | None = None, force: bo
         return today_str
 
     selected_key = None
+    package_date = None
     if target_date:
-        if target_date not in packages or "video" not in packages[target_date]:
+        if target_date in packages and "video" in packages[target_date]:
+            selected_key = target_date
+            package_date = target_date
+        elif "video" in packages.get("root", {}):
+            # The live monthly folder contains the current day's video directly.
+            # A manual run supplies the intended date, so bind that flat package
+            # to the requested date instead of requiring a dated subfolder.
+            selected_key = "root"
+            package_date = target_date
+        else:
             raise RuntimeError(f"Requested date folder '{target_date}' not found in Google Drive (available: {sorted(packages.keys())})")
-        selected_key = target_date
     elif today_str in packages and "video" in packages[today_str] and today_str not in published:
         selected_key = today_str
+        package_date = today_str
+    elif "video" in packages.get("root", {}) and today_str not in published:
+        selected_key = "root"
+        package_date = today_str
     else:
         for key in sorted(packages.keys()):
+            if key == "root":
+                continue
             if key not in published and "video" in packages[key] and key <= today_str:
                 selected_key = key
+                package_date = key
                 break
         if not selected_key:
             for key in sorted(packages.keys()):
+                if key == "root":
+                    continue
                 if key not in published and "video" in packages[key]:
                     selected_key = key
+                    package_date = key
                     break
 
     if not selected_key:
@@ -147,33 +173,33 @@ def fetch_drive_package(out_dir: Path, target_date: str | None = None, force: bo
 
     video_meta = pkg["video"]
     video_out = out_dir / "reel.mp4"
-    log.info("Downloading video for %s (%s) -> %s", selected_key, video_meta.path, video_out)
+    log.info("Downloading video for %s (%s) -> %s", package_date, video_meta.path, video_out)
     gdown.download(id=video_meta.id, output=str(video_out), quiet=False)
 
     cover_out = out_dir / "cover.jpg"
     if "cover" in pkg:
         cover_meta = pkg["cover"]
-        log.info("Downloading cover for %s (%s) -> %s", selected_key, cover_meta.path, cover_out)
+        log.info("Downloading cover for %s (%s) -> %s", package_date, cover_meta.path, cover_out)
         gdown.download(id=cover_meta.id, output=str(cover_out), quiet=True)
 
     caption_out = out_dir / "caption.txt"
     caption_text = ""
     if "caption" in pkg:
         cap_meta = pkg["caption"]
-        log.info("Downloading caption for %s (%s) -> %s", selected_key, cap_meta.path, caption_out)
+        log.info("Downloading caption for %s (%s) -> %s", package_date, cap_meta.path, caption_out)
         gdown.download(id=cap_meta.id, output=str(caption_out), quiet=True)
         if caption_out.exists():
             caption_text = caption_out.read_text(encoding="utf-8", errors="replace").strip()
     caption_out.write_text(caption_text, encoding="utf-8")
 
     plan = {
-        "date": selected_key,
-        "topic": f"Google Drive ({selected_key})",
+        "date": package_date,
+        "topic": f"Google Drive ({package_date})",
         "source": "google_drive",
         "drive_folder_id": folder_id,
     }
     (out_dir / "plan.json").write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
-    return selected_key
+    return package_date
 
 
 def main():
