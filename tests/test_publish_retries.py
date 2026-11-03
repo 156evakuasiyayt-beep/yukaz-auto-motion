@@ -65,11 +65,11 @@ class PublishRetryTests(unittest.TestCase):
             video = Path(tmp) / "video.mp4"
             video.write_bytes(b"video")
             with (
-                mock.patch.dict(tiktok.os.environ, {"TIKTOK_SESSION_ID": ""}, clear=False),
+                mock.patch.dict(tiktok.os.environ, {"TIKTOK_SESSION_ID": "legacy-cookie"}, clear=False),
                 mock.patch.object(tiktok, "get_valid_access_token", return_value="token"),
                 mock.patch.object(tiktok.requests, "post", return_value=Response()) as post,
             ):
-                with self.assertRaisesRegex(tiktok.TikTokError, "refusing to create an Inbox draft"):
+                with self.assertRaisesRegex(tiktok.TikTokError, "Content Posting API audit"):
                     tiktok.publish_tiktok(video, "caption")
 
             self.assertEqual(1, post.call_count)

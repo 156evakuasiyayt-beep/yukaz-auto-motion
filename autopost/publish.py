@@ -108,7 +108,7 @@ def main():
             elif p == "facebook":
                 results[p] = meta.publish_facebook(page_id, video, caption, cover)
             elif p == "tiktok":
-                if not any(os.environ.get(k, "").strip() for k in ("TIKTOK_SESSION_ID", "TIKTOK_REFRESH_TOKEN", "TIKTOK_ACCESS_TOKEN")):
+                if not any(os.environ.get(k, "").strip() for k in ("TIKTOK_REFRESH_TOKEN", "TIKTOK_ACCESS_TOKEN")):
                     log.error("TikTok credentials are not configured")
                     failed.append(p)
                     results[p] = {"error": "TikTok credentials are not configured"}
