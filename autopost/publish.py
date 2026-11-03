@@ -44,6 +44,44 @@ def wait_until(hhmm: str):
         time.sleep(secs)
 
 
+def _publish_tiktok_with_retry(
+    video: Path,
+    caption: str,
+    cover: Path | None,
+    *,
+    attempts: int,
+    delay_seconds: float,
+) -> dict:
+    """Retry TikTok direct posting without falling back to drafts or private posts."""
+    attempts = max(1, attempts)
+    delay_seconds = max(0, delay_seconds)
+    last_error: Exception | None = None
+
+    for attempt in range(1, attempts + 1):
+        try:
+            result = tiktok.publish_tiktok(video, caption, cover=cover)
+            if not _is_successful_result(result):
+                raise tiktok.TikTokError(f"TikTok returned a non-public result: {result}")
+            if attempt > 1:
+                log.info("TikTok public post succeeded on attempt %s/%s", attempt, attempts)
+            return result
+        except Exception as error:
+            last_error = error
+            if attempt >= attempts:
+                break
+            log.warning(
+                "TikTok attempt %s/%s failed: %s. Retrying in %.0f seconds.",
+                attempt,
+                attempts,
+                error,
+                delay_seconds,
+            )
+            time.sleep(delay_seconds)
+
+    assert last_error is not None
+    raise last_error
+
+
 def main():
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     ap = argparse.ArgumentParser()
@@ -52,6 +90,18 @@ def main():
     ap.add_argument("--wait-until")
     ap.add_argument("--approval", choices=["telegram", "none"], default="telegram")
     ap.add_argument("--approval-deadline", default="14:00", help="HH:MM Asia/Baku; no answer by then → skip today")
+    ap.add_argument(
+        "--tiktok-attempts",
+        type=int,
+        default=int(os.environ.get("TIKTOK_RETRY_ATTEMPTS", "4")),
+        help="Total TikTok public-post attempts (default: 4)",
+    )
+    ap.add_argument(
+        "--tiktok-retry-delay",
+        type=float,
+        default=float(os.environ.get("TIKTOK_RETRY_DELAY_SECONDS", "300")),
+        help="Seconds between TikTok attempts (default: 300)",
+    )
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
 
@@ -113,7 +163,13 @@ def main():
                     failed.append(p)
                     results[p] = {"error": "TikTok credentials are not configured"}
                     continue
-                results[p] = tiktok.publish_tiktok(video, caption, cover=cover)
+                results[p] = _publish_tiktok_with_retry(
+                    video,
+                    caption,
+                    cover,
+                    attempts=a.tiktok_attempts,
+                    delay_seconds=a.tiktok_retry_delay,
+                )
             else:
                 raise ValueError(f"unknown platform {p}")
             log.info("%s ✓ %s", p, results[p])

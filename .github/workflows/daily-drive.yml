@@ -78,7 +78,9 @@ jobs:
           if [ "${{ inputs.publish_now }}" = "true" ]; then WAIT=""; fi
           python -m autopost.publish --out out \
             --platforms "${{ inputs.platforms || 'instagram,facebook,tiktok' }}" \
-            --approval none $WAIT
+            --approval none \
+            --tiktok-attempts 6 \
+            --tiktok-retry-delay 300 $WAIT
 
       - name: Record published Google Drive date in repository
         if: always() && steps.fetch.outputs.skip != 'true'

@@ -97,6 +97,53 @@ class PublishRetryTests(unittest.TestCase):
             self.assertEqual(1, post.call_count)
             self.assertNotIn("/inbox/", post.call_args.args[0])
 
+    def test_tiktok_retries_then_publishes_publicly(self):
+        success = {
+            "id": "publish-1",
+            "mode": "direct_post (PUBLIC_TO_EVERYONE)",
+            "permalink": "https://www.tiktok.com/@yuk.az",
+        }
+        with (
+            mock.patch.object(
+                tiktok,
+                "publish_tiktok",
+                side_effect=[tiktok.TikTokError("temporary error"), success],
+            ) as post,
+            mock.patch.object(publish.time, "sleep") as sleep,
+        ):
+            result = publish._publish_tiktok_with_retry(
+                Path("video.mp4"),
+                "caption",
+                None,
+                attempts=6,
+                delay_seconds=300,
+            )
+
+        self.assertEqual(success, result)
+        self.assertEqual(2, post.call_count)
+        sleep.assert_called_once_with(300)
+
+    def test_tiktok_stops_after_retry_limit(self):
+        with (
+            mock.patch.object(
+                tiktok,
+                "publish_tiktok",
+                side_effect=tiktok.TikTokError("still blocked"),
+            ) as post,
+            mock.patch.object(publish.time, "sleep") as sleep,
+        ):
+            with self.assertRaisesRegex(tiktok.TikTokError, "still blocked"):
+                publish._publish_tiktok_with_retry(
+                    Path("video.mp4"),
+                    "caption",
+                    None,
+                    attempts=3,
+                    delay_seconds=10,
+                )
+
+        self.assertEqual(3, post.call_count)
+        self.assertEqual([mock.call(10), mock.call(10)], sleep.call_args_list)
+
 
 if __name__ == "__main__":
     unittest.main()
