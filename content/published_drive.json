@@ -274,10 +274,11 @@
       }
     },
     "2026-11-16": {
-      "last_attempt_at": "2026-11-16T10:55:48.633577+04:00",
+      "last_attempt_at": "2026-11-16T19:54:56.249004+04:00",
       "results": {
         "instagram": {
-          "error": "binary upload failed (500): {'debug_info': {'retriable': False, 'type': 'ProcessingFailedError', 'message': '{\"success\":false,\"error\":{\"message\":\"{\\\\\"message\\\\\":\\\\\"Video Transcoding Error: Broken container.\\\\\"}\"}}'}}"
+          "id": "18122862721949859",
+          "permalink": "https://www.instagram.com/reel/DfzuXf9n4NQ/"
         },
         "facebook": {
           "id": "1159448713225649",
