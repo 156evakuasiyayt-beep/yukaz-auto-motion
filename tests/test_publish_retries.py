@@ -18,27 +18,63 @@ from autopost import drive, publish, tiktok
 
 
 class PublishRetryTests(unittest.TestCase):
-    def test_flat_month_folder_is_bound_to_requested_date(self):
-        source = types.SimpleNamespace(path="166 Yükdaşıma - Youtube Gəncə.mp4", id="drive-video")
+    def test_public_folder_listing_ignores_native_docs(self):
+        html = '''<html><head><title>Reels</title></head><body>
+        <a href="https://drive.google.com/drive/folders/today-folder">2026-11-16</a>
+        <a href="https://drive.google.com/file/d/video-id/view">yukaz_reel_2026-11-16.mp4</a>
+        <a href="https://docs.google.com/document/d/old-doc/edit">old caption</a>
+        </body></html>'''
+        response = types.SimpleNamespace(text=html, raise_for_status=lambda: None)
+        with mock.patch.object(drive.requests, "get", return_value=response):
+            self.assertEqual(
+                [("2026-11-16", "today-folder", "folder"),
+                 ("yukaz_reel_2026-11-16.mp4", "video-id", "file")],
+                drive._list_public_folder("root-folder"),
+            )
 
-        def fake_download(*, id, output, quiet):
-            self.assertEqual("drive-video", id)
-            Path(output).write_bytes(b"video")
+    def test_only_requested_date_folder_is_read(self):
+        def list_folder(folder_id):
+            if folder_id == drive.DEFAULT_DRIVE_FOLDER_ID:
+                return [("2026-11-11", "old-folder", "folder"),
+                        ("2026-11-16", "today-folder", "folder")]
+            self.assertEqual("today-folder", folder_id)
+            return [("yukaz_reel_2026-11-16.mp4", "drive-video", "file"),
+                    ("yukaz_caption_2026-11-16.txt", "drive-caption", "file")]
+
+        def fake_download(file_id, path):
+            path.write_bytes(b"video" if file_id == "drive-video" else b"caption")
 
         with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as tmp:
             out = Path(tmp) / "out"
             tracker = Path(tmp) / "published_drive.json"
             with (
                 mock.patch.object(drive, "TRACKER_PATH", tracker),
-                mock.patch.object(drive.gdown, "download_folder", return_value=[source], create=True),
-                mock.patch.object(drive.gdown, "download", side_effect=fake_download, create=True),
+                mock.patch.object(drive, "_list_public_folder", side_effect=list_folder) as listing,
+                mock.patch.object(drive, "_download_file", side_effect=fake_download),
             ):
-                date_key = drive.fetch_drive_package(out, target_date="2026-11-03")
+                date_key = drive.fetch_drive_package(out, target_date="2026-11-16")
 
-            self.assertEqual("2026-11-03", date_key)
+            self.assertEqual("2026-11-16", date_key)
             self.assertEqual(b"video", (out / "reel.mp4").read_bytes())
+            self.assertEqual("caption", (out / "caption.txt").read_text())
+            self.assertEqual(2, listing.call_count)
             plan = json.loads((out / "plan.json").read_text(encoding="utf-8"))
-            self.assertEqual("2026-11-03", plan["date"])
+            self.assertEqual("2026-11-16", plan["date"])
+
+    def test_published_manual_date_is_not_downloaded_again(self):
+        with tempfile.TemporaryDirectory(dir=Path(__file__).parent) as tmp:
+            out = Path(tmp) / "out"
+            tracker = Path(tmp) / "published_drive.json"
+            tracker.write_text(json.dumps({"published_dates": ["2026-11-16"]}), encoding="utf-8")
+            with (mock.patch.object(drive, "TRACKER_PATH", tracker),
+                  mock.patch.object(drive, "_list_public_folder") as listing):
+                self.assertEqual("2026-11-16", drive.fetch_drive_package(out, target_date="2026-11-16"))
+                listing.assert_not_called()
+            self.assertEqual("2026-11-16", (out / "already_published.txt").read_text())
+
+    def test_wrong_date_video_is_rejected(self):
+        entries = [("yukaz_reel_2026-11-15.mp4", "old-video", "file")]
+        self.assertIsNone(drive._pick_file(entries, "2026-11-16", "video"))
 
     def test_inbox_draft_is_not_success(self):
         self.assertFalse(

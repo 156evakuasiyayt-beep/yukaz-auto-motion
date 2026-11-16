@@ -21,8 +21,11 @@ import os
 import re
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 import gdown
+import requests
+from bs4 import BeautifulSoup
 
 from .plan import BAKU
 
@@ -36,6 +39,53 @@ def _extract_folder_id(raw: str) -> str:
     raw = (raw or "").strip()
     m = re.search(r"/folders/([a-zA-Z0-9_-]+)", raw)
     return m.group(1) if m else raw
+
+
+def _list_public_folder(folder_id: str) -> list[tuple[str, str, str]]:
+    """List only direct children, without probing archived Google Docs exports."""
+    response = requests.get(
+        "https://drive.google.com/embeddedfolderview",
+        params={"id": folder_id},
+        headers={"User-Agent": "Mozilla/5.0"},
+        timeout=30,
+    )
+    response.raise_for_status()
+    soup = BeautifulSoup(response.text, "html.parser")
+    if not soup.title:
+        raise RuntimeError(f"Could not read public Drive folder {folder_id}")
+
+    entries = []
+    for link in soup.find_all("a", href=True):
+        url = urlparse(link["href"])
+        name = link.get_text(strip=True)
+        folder = re.fullmatch(r"/drive/folders/([\w-]+)", url.path)
+        file = re.fullmatch(r"/file/d/([\w-]+)/view", url.path)
+        if url.netloc == "drive.google.com" and folder:
+            entries.append((name, folder.group(1), "folder"))
+        elif url.netloc == "drive.google.com" and file:
+            entries.append((name, file.group(1), "file"))
+    return entries
+
+
+def _pick_file(entries: list[tuple[str, str, str]], date_key: str, kind: str):
+    extensions = {
+        "video": (".mp4", ".mov"),
+        "cover": (".jpg", ".jpeg", ".png", ".webp"),
+        "caption": (".txt",),
+    }[kind]
+    matches = [(name, file_id) for name, file_id, type_ in entries
+               if type_ == "file" and name.lower().endswith(extensions)]
+    dated = [(name, file_id) for name, file_id in matches if date_key in name]
+    matches = dated
+    if len(matches) > 1:
+        raise RuntimeError(f"Multiple {kind} files for {date_key}: {[name for name, _ in matches]}")
+    return matches[0] if matches else None
+
+
+def _download_file(file_id: str, path: Path) -> None:
+    result = gdown.download(id=file_id, output=str(path), quiet=True)
+    if not result or not path.is_file() or path.stat().st_size == 0:
+        raise RuntimeError(f"Google Drive download failed for file {file_id}")
 
 
 def load_tracker() -> dict:
@@ -93,113 +143,68 @@ def mark_date_published(date_key: str, results: dict):
 def fetch_drive_package(out_dir: Path, target_date: str | None = None, force: bool = False) -> str:
     raw_folder = os.environ.get("GOOGLE_DRIVE_FOLDER_ID") or DEFAULT_DRIVE_FOLDER_ID
     folder_id = _extract_folder_id(raw_folder)
-    folder_url = f"https://drive.google.com/drive/folders/{folder_id}"
-
-    log.info("Inspecting Google Drive folder: %s", folder_url)
-    files = gdown.download_folder(url=folder_url, skip_download=True, quiet=True)
-    if not files:
-        raise RuntimeError(f"No files found in Google Drive folder {folder_id}")
-
-    packages: dict[str, dict[str, object]] = {}
-    for f in files:
-        rel_path = str(f.path).replace("\\", "/")
-        parts = rel_path.split("/")
-        group_key = parts[0] if len(parts) > 1 else "root"
-        fname = parts[-1].lower()
-
-        pkg = packages.setdefault(group_key, {})
-        if fname.endswith((".mp4", ".mov")):
-            pkg["video"] = f
-        elif fname.endswith((".jpg", ".jpeg", ".png", ".webp")):
-            pkg["cover"] = f
-        elif fname.endswith(".txt"):
-            pkg["caption"] = f
-
-    published = set() if force else load_published_dates()
     today_str = dt.datetime.now(BAKU).strftime("%Y-%m-%d")
+    date_key = target_date or today_str
+    try:
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date_key):
+            raise ValueError("Expected YYYY-MM-DD")
+        dt.date.fromisoformat(date_key)
+    except ValueError as error:
+        raise ValueError(f"Invalid Drive package date: {date_key}") from error
 
     out_dir.mkdir(parents=True, exist_ok=True)
     skip_marker = out_dir / "already_published.txt"
     if skip_marker.exists():
         skip_marker.unlink()
+    if not force and date_key in load_published_dates():
+        log.info("%s is already published — skipping duplicate run", date_key)
+        skip_marker.write_text(date_key, encoding="utf-8")
+        return date_key
 
-    if not target_date and not force and today_str in published:
-        log.info("Today's package (%s) is already in published_dates — skipping duplicate run.", today_str)
-        skip_marker.write_text(today_str, encoding="utf-8")
-        return today_str
-
-    selected_key = None
-    package_date = None
-    if target_date:
-        if target_date in packages and "video" in packages[target_date]:
-            selected_key = target_date
-            package_date = target_date
-        elif "video" in packages.get("root", {}):
-            # The live monthly folder contains the current day's video directly.
-            # A manual run supplies the intended date, so bind that flat package
-            # to the requested date instead of requiring a dated subfolder.
-            selected_key = "root"
-            package_date = target_date
-        else:
-            raise RuntimeError(f"Requested date folder '{target_date}' not found in Google Drive (available: {sorted(packages.keys())})")
-    elif today_str in packages and "video" in packages[today_str] and today_str not in published:
-        selected_key = today_str
-        package_date = today_str
-    elif "video" in packages.get("root", {}) and today_str not in published:
-        selected_key = "root"
-        package_date = today_str
+    log.info("Inspecting Google Drive folder for %s: %s", date_key, folder_id)
+    root_entries = _list_public_folder(folder_id)
+    matching_folders = [entry for entry in root_entries
+                        if entry[2] == "folder" and entry[0] == date_key]
+    if len(matching_folders) > 1:
+        raise RuntimeError(f"Multiple Google Drive folders named {date_key}")
+    if matching_folders:
+        package_entries = _list_public_folder(matching_folders[0][1])
     else:
-        for key in sorted(packages.keys()):
-            if key == "root":
-                continue
-            if key not in published and "video" in packages[key] and key <= today_str:
-                selected_key = key
-                package_date = key
-                break
-        if not selected_key:
-            for key in sorted(packages.keys()):
-                if key == "root":
-                    continue
-                if key not in published and "video" in packages[key]:
-                    selected_key = key
-                    package_date = key
-                    break
+        # A flat folder is valid only when the filename names the requested date.
+        package_entries = [entry for entry in root_entries
+                           if entry[2] == "file" and date_key in entry[0]]
 
-    if not selected_key:
-        raise RuntimeError(f"All available Google Drive packages ({sorted(packages.keys())}) have already been published.")
+    video = _pick_file(package_entries, date_key, "video")
+    if not video:
+        raise RuntimeError(f"No video found for {date_key} in Google Drive folder {folder_id}")
+    cover = _pick_file(package_entries, date_key, "cover")
+    caption = _pick_file(package_entries, date_key, "caption")
 
-    pkg = packages[selected_key]
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    video_meta = pkg["video"]
     video_out = out_dir / "reel.mp4"
-    log.info("Downloading video for %s (%s) -> %s", package_date, video_meta.path, video_out)
-    gdown.download(id=video_meta.id, output=str(video_out), quiet=False)
+    log.info("Downloading video for %s (%s) -> %s", date_key, video[0], video_out)
+    _download_file(video[1], video_out)
 
     cover_out = out_dir / "cover.jpg"
-    if "cover" in pkg:
-        cover_meta = pkg["cover"]
-        log.info("Downloading cover for %s (%s) -> %s", package_date, cover_meta.path, cover_out)
-        gdown.download(id=cover_meta.id, output=str(cover_out), quiet=True)
+    if cover:
+        log.info("Downloading cover for %s (%s) -> %s", date_key, cover[0], cover_out)
+        _download_file(cover[1], cover_out)
 
     caption_out = out_dir / "caption.txt"
     caption_text = ""
-    if "caption" in pkg:
-        cap_meta = pkg["caption"]
-        log.info("Downloading caption for %s (%s) -> %s", package_date, cap_meta.path, caption_out)
-        gdown.download(id=cap_meta.id, output=str(caption_out), quiet=True)
-        if caption_out.exists():
-            caption_text = caption_out.read_text(encoding="utf-8", errors="replace").strip()
+    if caption:
+        log.info("Downloading caption for %s (%s) -> %s", date_key, caption[0], caption_out)
+        _download_file(caption[1], caption_out)
+        caption_text = caption_out.read_text(encoding="utf-8", errors="replace").strip()
     caption_out.write_text(caption_text, encoding="utf-8")
 
     plan = {
-        "date": package_date,
-        "topic": f"Google Drive ({package_date})",
+        "date": date_key,
+        "topic": f"Google Drive ({date_key})",
         "source": "google_drive",
         "drive_folder_id": folder_id,
     }
     (out_dir / "plan.json").write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
-    return package_date
+    return date_key
 
 
 def main():
