@@ -180,6 +180,22 @@ class PublishRetryTests(unittest.TestCase):
         self.assertEqual(3, post.call_count)
         self.assertEqual([mock.call(10), mock.call(10)], sleep.call_args_list)
 
+    def test_tiktok_audit_error_is_not_retried(self):
+        with (
+            mock.patch.object(
+                tiktok,
+                "publish_tiktok",
+                side_effect=tiktok.TikTokError("unaudited_client_can_only_post_to_private_accounts"),
+            ) as post,
+            mock.patch.object(publish.time, "sleep") as sleep,
+        ):
+            with self.assertRaisesRegex(tiktok.TikTokError, "unaudited_client"):
+                publish._publish_tiktok_with_retry(
+                    Path("video.mp4"), "caption", None, attempts=6, delay_seconds=300,
+                )
+        post.assert_called_once()
+        sleep.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

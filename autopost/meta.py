@@ -8,6 +8,8 @@ Env:
 """
 import logging
 import os
+import subprocess
+import tempfile
 import time
 from pathlib import Path
 
@@ -63,17 +65,40 @@ def hosted_cover_url(page_id: str, cover: Path) -> str:
 
 
 # ----------------------------------------------------------------------------- Instagram
+def _normalize_instagram_video(source: Path, destination: Path) -> None:
+    """Give Instagram a clean H.264/AAC MP4 with a conventional container."""
+    command = [
+        "ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
+        "-i", str(source),
+        "-map", "0:v:0", "-map", "0:a:0?",
+        "-vf", "scale=w='min(1080,iw)':h='min(1920,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2,fps=30",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "21",
+        "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "128k",
+        "-ar", "44100", "-movflags", "+faststart", str(destination),
+    ]
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=600, check=False)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise MetaError(f"IG video normalization could not run: {error}") from error
+    if result.returncode or not destination.is_file() or destination.stat().st_size == 0:
+        raise MetaError(f"IG video normalization failed: {result.stderr[-500:]}")
+    log.info("Normalized IG video: %s -> %s bytes", source, destination.stat().st_size)
+
+
 def publish_instagram(ig_user_id: str, video: Path, caption: str, cover_url: str | None) -> dict:
-    params = {"media_type": "REELS", "upload_type": "resumable", "caption": caption,
-              "access_token": _token()}
-    if cover_url:
-        params["cover_url"] = cover_url
-    else:
-        params["thumb_offset"] = "10200"
-    r = requests.post(f"{GRAPH}/{ig_user_id}/media", data=params, timeout=60)
-    container = _check(r, "IG container create")
-    cid = container["id"]
-    _upload_binary(container.get("uri") or f"{RUPLOAD}/ig-api-upload/{GV}/{cid}", video)
+    with tempfile.TemporaryDirectory(prefix="ig-reel-") as temp_dir:
+        normalized = Path(temp_dir) / "reel.mp4"
+        _normalize_instagram_video(video, normalized)
+        params = {"media_type": "REELS", "upload_type": "resumable", "caption": caption,
+                  "access_token": _token()}
+        if cover_url:
+            params["cover_url"] = cover_url
+        else:
+            params["thumb_offset"] = "10200"
+        r = requests.post(f"{GRAPH}/{ig_user_id}/media", data=params, timeout=60)
+        container = _check(r, "IG container create")
+        cid = container["id"]
+        _upload_binary(container.get("uri") or f"{RUPLOAD}/ig-api-upload/{GV}/{cid}", normalized)
 
     deadline = time.time() + 600
     while True:

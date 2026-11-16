@@ -67,6 +67,9 @@ def _publish_tiktok_with_retry(
             return result
         except Exception as error:
             last_error = error
+            if "unaudited_client_can_only_post_to_private_accounts" in str(error):
+                log.error("TikTok app audit is required; another immediate attempt cannot publish publicly")
+                break
             if attempt >= attempts:
                 break
             log.warning(
