@@ -352,6 +352,22 @@
           "error": "TikTok public direct post init failed (403, unaudited_client_can_only_post_to_private_accounts): Please review our integration guidelines at https://developers.tiktok.com/doc/content-sharing-guidelines/. TikTok app must pass the Content Posting API audit before public posting is allowed."
         }
       }
+    },
+    "2026-11-22": {
+      "last_attempt_at": "2026-11-22T18:30:37.480838+04:00",
+      "results": {
+        "instagram": {
+          "id": "18130880902870234",
+          "permalink": "https://www.instagram.com/reel/DgDBc8VFZeu/"
+        },
+        "facebook": {
+          "id": "1361488945964289",
+          "permalink": "https://www.facebook.com/reel/1361488945964289"
+        },
+        "tiktok": {
+          "error": "TikTok public direct post init failed (403, unaudited_client_can_only_post_to_private_accounts): Please review our integration guidelines at https://developers.tiktok.com/doc/content-sharing-guidelines/. TikTok app must pass the Content Posting API audit before public posting is allowed."
+        }
+      }
     }
   }
 }
